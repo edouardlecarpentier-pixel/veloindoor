@@ -121,7 +121,7 @@ async function connectHr(){
 // 00000001-19CA-4651-86E5-FA29DCDD09D1, notifications 02, écriture 03, indications 04, poignée de main « RideOn ».
 const ZSVC='00000001-19ca-4651-86e5-fa29dcdd09d1', ZNOT='00000002-19ca-4651-86e5-fa29dcdd09d1',
       ZWR='00000003-19ca-4651-86e5-fa29dcdd09d1', ZIND='00000004-19ca-4651-86e5-fa29dcdd09d1';
-const GEARS=24, GEAR0=12, GEAR_STEP=0.5;     // 24 vitesses ; chaque cran = ±0,5 % de pente
+const GEARS=24, GEAR0=12, GEAR_STEP=1;       // 24 vitesses ; chaque cran = ±1 % de pente
 let gear=GEAR0, padLog=[], padN=0;
 const gearOffset=()=>(gear-GEAR0)*GEAR_STEP;
 function showGear(){$('lGear').textContent=gear+'/'+GEARS}
