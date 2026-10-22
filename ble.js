@@ -123,7 +123,7 @@ const ZSVC='00000001-19ca-4651-86e5-fa29dcdd09d1', ZNOT='00000002-19ca-4651-86e5
       ZWR='00000003-19ca-4651-86e5-fa29dcdd09d1', ZIND='00000004-19ca-4651-86e5-fa29dcdd09d1';
 const GEARS=24, GEAR0=12, GEAR_STEP=0.5;     // 24 vitesses ; chaque cran = ±0,5 % de pente
 const BTN_UP=0x00200|0x02000, BTN_DN=0x00400|0x04000;   // à vérifier avec le diagnostic (padDbg)
-let gear=GEAR0, padPrev=0;
+let gear=GEAR0, padLog=[], padN=0;
 const gearOffset=()=>(gear-GEAR0)*GEAR_STEP;
 function showGear(){$('lGear').textContent=gear+'/'+GEARS}
 function shiftGear(d){
@@ -131,31 +131,40 @@ function shiftGear(d){
   if(mode==='sim') lastGradeAt=0;            // renvoie la pente tout de suite
 }
 function hex(dv){return Array.from(new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength),b=>b.toString(16).padStart(2,'0')).join(' ')}
-function onPad(dv){
-  const raw=hex(dv); let info='';
-  if(dv.byteLength>=3&&dv.getUint8(0)===0x23&&dv.getUint8(1)===0x08){
-    let map=0,sh=0,o=2,b;                    // varint protobuf (champ 1) : bit à 0 = bouton appuyé
-    do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
-    const pressed=(~map>>>0)&0x1FFFF, fresh=pressed&~padPrev; padPrev=pressed;
-    info=' · appuyés 0x'+pressed.toString(16);
-    if(fresh&BTN_UP) shiftGear(1); else if(fresh&BTN_DN) shiftGear(-1);
-  }
-  $('padDbg').textContent=raw+info;
+function logPad(t){padLog.unshift(t); if(padLog.length>8) padLog.pop(); $('padDbg').textContent=padLog.join('\n')}
+// un état par manette (gauche et droite sont deux appareils distincts) ; le 1er message sert de référence
+function makePadHandler(tag){
+  let prev=null;
+  return dv=>{
+    let info='';
+    if(dv.byteLength>=3&&dv.getUint8(0)===0x23&&dv.getUint8(1)===0x08){
+      let map=0,sh=0,o=2,b;                  // varint protobuf (champ 1) : bit à 0 = bouton appuyé
+      do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
+      const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev; prev=pressed;
+      info=' | appuyés 0x'+pressed.toString(16)+(fresh?' nouveau 0x'+fresh.toString(16):'');
+      if(fresh&BTN_UP) shiftGear(1); else if(fresh&BTN_DN) shiftGear(-1);
+    }
+    logPad(tag+' '+hex(dv)+info);
+  };
 }
 async function connectPad(){
   try{
     $('btnPad').textContent='Recherche…';
     status('Recherche des manettes… (allume-les en appuyant dessus ; ferme Zwift partout)');
+    const tag='#'+(++padN);
     const c=await bleConnect(0xFC82,()=>{
-      $('btnPad').classList.remove('on');$('btnPad').textContent='Connecter les manettes';status('Manettes déconnectées.');
+      padN=Math.max(0,padN-1);
+      $('btnPad').classList.toggle('on',padN>0);$('btnPad').textContent=padN>0?'Manettes : '+padN+' connectée(s)':'Connecter les manettes';status('Une manette déconnectée.');
     },ZSVC,'Zwift');
-    await c.notify(ZNOT,onPad);
-    await c.notify(ZIND,onPad);
+    const h=makePadHandler(tag);
+    await c.notify(ZNOT,h);
+    await c.notify(ZIND,h);
     await c.write(ZWR,[0x52,0x69,0x64,0x65,0x4F,0x6E,0x01,0x02]);   // « RideOn » + 01 02 (Ride)
-    padPrev=0; showGear();
-    $('btnPad').classList.add('on');$('btnPad').textContent='Manettes : '+(c.name||'connectées');
-    status('Manettes connectées. Appuie sur les palettes : vitesse + / −.');
+    showGear();
+    $('btnPad').classList.add('on');$('btnPad').textContent='Manettes : '+padN+' connectée(s) · appuie pour ajouter l\'autre';
+    status('Manette '+tag+' ('+(c.name||'?')+') connectée. Appuie sur « Connecter les manettes » pour ajouter l\'autre (gauche/droite).');
   }catch(e){
+    padN=Math.max(0,padN-1);
     const m=(e&&e.message)||String(e);
     $('btnPad').textContent='Manettes : '+m.slice(0,60);
     status('Connexion manettes impossible : '+m);

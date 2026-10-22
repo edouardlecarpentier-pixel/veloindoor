@@ -58,6 +58,7 @@
   <button id="btnPad">Connecter les manettes</button>
   <button id="btnVideo">Mode vidéo</button>
 </div>
+<div id="padDbg" style="padding:0 16px;font:11px monospace;color:var(--mut);white-space:pre-wrap;word-break:break-all"></div>
 <div class="live">
   <div class="stat"><b id="lPow">–</b><span>W</span></div>
   <div class="stat"><b id="lCad">–</b><span>tr/min</span></div>
@@ -97,7 +98,6 @@
   <input id="inDiff" type="number" value="100" min="0" max="100"> % de pente
   <button id="btnSim">Rouler le parcours</button>
 </div>
-<div id="padDbg" style="padding:0 16px;font:11px monospace;color:var(--mut)"></div>
 <div id="bleMsg">Ferme Zwift avant de connecter le Ride. Chrome sur Android et https requis.</div>
 <style>
   .hline{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 16px;padding:10px;background:var(--card);border-radius:8px;font-size:14px}
@@ -351,7 +351,7 @@ function clearAll(w){
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
-<script src="ble.js?v=2"></script>
+<script src="ble.js?v=3"></script>
 <script src="export.js"></script>
 <script src="video.js"></script>
 </body>
