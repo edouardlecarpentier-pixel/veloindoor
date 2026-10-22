@@ -103,11 +103,80 @@ function setTarget(w){
 }
 function fmt(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 
+// ---------- Séance par intervalles ----------
+let steps=[], stepIdx=-1, mode=null;
+function parsePlan(t){
+  return t.split('\n').map(l=>l.replace(/#.*/,'').trim()).filter(Boolean).map(l=>{
+    const m=l.match(/^(\d+(?:[.,]\d+)?)\s*(?:min)?\s*[x@ ]\s*(\d+)/i);
+    return m?{sec:Math.round(parseFloat(m[1].replace(',','.'))*60),w:+m[2]}:null;
+  }).filter(s=>s&&s.sec>0);
+}
+function savePlan(){try{localStorage.setItem('vi_plan',$('plan').value)}catch(e){}}
+try{$('plan').value=localStorage.getItem('vi_plan')||''}catch(e){}
+$('plan').addEventListener('input',savePlan);
+$('btnGen').onclick=()=>{
+  const g=id=>+$(id).value||0, L=[];
+  if(g('gWu')>0) L.push(g('gWu')+' '+g('gOffW'));
+  for(let i=0;i<g('gR');i++){L.push(g('gOnM')+' '+g('gOnW'));L.push(g('gOffM')+' '+g('gOffW'))}
+  if(g('gCd')>0) L.push(g('gCd')+' '+g('gOffW'));
+  $('plan').value=L.join('\n'); savePlan();
+  const tot=parsePlan($('plan').value).reduce((a,s)=>a+s.sec,0);
+  status('Séance générée : '+fmt(tot)+' au total. Appuie sur Démarrer.');
+};
+
+// ---------- Parcours GPX (simulation de pente) ----------
+let simDist=0, lastGradeAt=0, simMarker=null;
+function getRoute(){return (typeof pts!=='undefined'&&pts.length>1)?pts:null}
+function interp(r,d){
+  d=Math.max(0,Math.min(d,r[r.length-1].d));
+  let lo=0,hi=r.length-1;
+  while(hi-lo>1){const m=(lo+hi)>>1; if(r[m].d<=d) lo=m; else hi=m}
+  const a=r[lo],b=r[hi],f=(b.d-a.d)?(d-a.d)/(b.d-a.d):0;
+  return {lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,ele:a.ele+(b.ele-a.ele)*f};
+}
+function sendGrade(g){
+  const v=Math.round(g*100);                         // pente en 0,01 %
+  send([0x11,0,0,v&0xFF,(v>>8)&0xFF,40,51]);         // vent 0, Crr 0,004, Cw 0,51
+}
+async function startSim(){
+  if(!T.cp){status('Connecte d\'abord le Ride.');return}
+  if(tick) return;
+  if(!getRoute()){status('Charge ou trace d\'abord un parcours.');return}
+  mode='sim'; simDist=0; lastGradeAt=0; steps=[];
+  await send([0x00]); await send([0x07]);
+  samples.length=0; startedAt=Date.now(); window.VI.startTime=startedAt;
+  try{wake=await navigator.wakeLock.request('screen')}catch(e){}
+  $('btnSim').textContent='Arrêter le parcours'; $('btnSim').classList.add('on');
+  if(typeof L!=='undefined'&&typeof map!=='undefined')
+    simMarker=L.circleMarker([getRoute()[0].lat,getRoute()[0].lon],{radius:8,color:'#fff',fillColor:'#22c55e',fillOpacity:1}).addTo(map);
+  tick=setInterval(()=>{
+    const r=getRoute(), total=r[r.length-1].d;
+    simDist+=(live.speed||0)/3.6;
+    const d0=Math.max(0,simDist-60), d1=Math.min(total,simDist+60);
+    let g=d1>d0?(interp(r,d1).ele-interp(r,d0).ele)/(d1-d0)*100:0;
+    g=Math.max(-10,Math.min(15,g))*((+$('inDiff').value||100)/100);
+    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(g)}
+    const p=interp(r,simDist);
+    if(simMarker) simMarker.setLatLng([p.lat,p.lon]);
+    $('timer').textContent=fmt((Date.now()-startedAt)/1000);
+    $('stepInfo').textContent=(simDist/1000).toFixed(2)+' / '+(total/1000).toFixed(1)+' km · pente '+g.toFixed(1)+' % · alt. '+Math.round(p.ele)+' m';
+    samples.push({t:Math.round((Date.now()-startedAt)/1000),power:live.power,cad:live.cad,speed:live.speed,hr:live.hr});
+    if(simDist>=total) stopErg(true);
+  },1000);
+  status('Parcours lancé. La pente est envoyée au Ride toutes les 2 s.');
+}
+
 async function startErg(){
   if(!T.cp){status('Connecte d\'abord le Ride.');return}
   if(tick){return}
-  const w=+$('inW').value, m=+$('inM').value;
-  if(!(w>=0&&m>0)){status('Puissance et durée invalides.');return}
+  steps=parsePlan($('plan').value);
+  if(!steps.length){
+    const w0=+$('inW').value, m0=+$('inM').value;
+    if(!(w0>=0&&m0>0)){status('Puissance et durée invalides.');return}
+    steps=[{sec:m0*60,w:w0}];
+  }
+  const w=steps[0].w, m=steps.reduce((a,s)=>a+s.sec,0)/60;
+  mode='erg'; stepIdx=-1;
   await send([0x00]);                // re-demande de contrôle si besoin
   await send([0x07]);                // démarrer / reprendre
   setTarget(w);
@@ -119,6 +188,13 @@ async function startErg(){
   tick=setInterval(()=>{
     const left=(endAt-Date.now())/1000;
     $('timer').textContent=fmt(left);
+    const el=(Date.now()-startedAt)/1000;
+    let acc=0, idx=steps.length-1;
+    for(let i=0;i<steps.length;i++){acc+=steps[i].sec; if(el<acc){idx=i;break}}
+    if(idx!==stepIdx){
+      stepIdx=idx; setTarget(steps[idx].w);
+      $('stepInfo').textContent='Étape '+(idx+1)+'/'+steps.length+(steps[idx+1]?' · suivante : '+steps[idx+1].w+' W':'');
+    }
     samples.push({t:Math.round((Date.now()-startedAt)/1000),power:live.power,cad:live.cad,speed:live.speed,hr:live.hr});
     if(left<=0) stopErg(true);
   },1000);
@@ -129,6 +205,9 @@ async function stopErg(finished){
   if(T.cp){await send([0x08,0x01]);}   // arrêt
   if(wake){try{wake.release()}catch(e){} wake=null}
   $('btnErg').textContent='Démarrer';$('btnErg').classList.remove('on');
+  $('btnSim').textContent='Rouler le parcours';$('btnSim').classList.remove('on');
+  if(simMarker){map.removeLayer(simMarker);simMarker=null}
+  $('stepInfo').textContent='';mode=null;
   if(window.VI.onStop) window.VI.onStop();
   status(finished?'Exercice terminé ('+samples.length+' secondes enregistrées).':'Exercice arrêté ('+samples.length+' s enregistrées).');
 }
@@ -136,6 +215,7 @@ async function stopErg(finished){
 $('btnRide').onclick=connectTrainer;
 $('btnHr').onclick=connectHr;
 $('btnErg').onclick=()=>tick?stopErg(false):startErg();
+$('btnSim').onclick=()=>tick?stopErg(false):startSim();
 $('wPlus').onclick=()=>setTarget(target+10);
 $('wMinus').onclick=()=>setTarget(target-10);
 $('inW').addEventListener('input',e=>{ if(!tick){target=+e.target.value||0;$('tgt').textContent=target} });

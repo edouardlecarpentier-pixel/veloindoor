@@ -48,6 +48,8 @@
   #timer{font-size:28px;font-weight:700;padding:0 8px}
   #bleMsg{padding:0 16px 12px;color:var(--mut);font-size:13px}
   h2{margin:8px 16px 0;font-size:15px;color:var(--mut)}
+  #plan{display:block;width:calc(100% - 32px);margin:0 16px 8px;background:var(--card);color:var(--tx);border:1px solid #334155;border-radius:8px;padding:10px;font-size:15px;font-family:inherit}
+  .erg input{width:64px}
 </style>
 <h2>Exercice</h2>
 <div class="bar">
@@ -68,6 +70,24 @@
   <button id="wPlus">+10 W</button>
   <span id="timer">0:00</span>
   <button id="btnErg">Démarrer</button>
+</div>
+<div id="stepInfo" style="padding:0 16px;font-size:14px"></div>
+<h2>Séance par intervalles</h2>
+<div class="erg">
+  <input id="gWu" type="number" value="10" title="Échauffement (min)"> échauf. min
+  <input id="gR" type="number" value="5" title="Répétitions"> ×
+  <input id="gOnM" type="number" value="4" title="Effort (min)"> min à
+  <input id="gOnW" type="number" value="250" title="Effort (W)"> W
+  <input id="gOffM" type="number" value="2" title="Récup (min)"> min à
+  <input id="gOffW" type="number" value="120" title="Récup (W)"> W
+  <input id="gCd" type="number" value="5" title="Retour au calme (min)"> calme min
+  <button id="btnGen">Générer</button>
+</div>
+<textarea id="plan" rows="5" placeholder="Une étape par ligne : minutes puis watts (ex. 10 120). Vide = effort constant ci-dessus."></textarea>
+<h2>Parcours GPX sur le Ride</h2>
+<div class="erg">
+  <input id="inDiff" type="number" value="100" min="0" max="100"> % de pente
+  <button id="btnSim">Rouler le parcours</button>
 </div>
 <div id="bleMsg">Ferme Zwift avant de connecter le Ride. Chrome sur Android et https requis.</div>
 <style>
