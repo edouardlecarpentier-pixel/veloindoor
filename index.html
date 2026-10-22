@@ -97,6 +97,7 @@
 <div class="erg">
   <input id="inDiff" type="number" value="100" min="0" max="100"> % de pente
   <button id="btnSim">Rouler le parcours</button>
+  <button id="btnFree">Pédale libre</button>
 </div>
 <div id="bleMsg">Ferme Zwift avant de connecter le Ride. Chrome sur Android et https requis.</div>
 <style>
@@ -351,7 +352,7 @@ function clearAll(w){
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
-<script src="ble.js?v=5"></script>
+<script src="ble.js?v=6"></script>
 <script src="export.js"></script>
 <script src="video.js"></script>
 </body>
