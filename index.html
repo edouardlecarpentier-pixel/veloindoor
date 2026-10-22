@@ -55,6 +55,7 @@
 <div class="bar">
   <button id="btnRide">Connecter le Ride</button>
   <button id="btnHr">Connecter la FC</button>
+  <button id="btnVideo">Mode vidéo</button>
 </div>
 <div class="live">
   <div class="stat"><b id="lPow">–</b><span>W</span></div>
@@ -104,6 +105,49 @@
 <div id="hist"></div>
 <div id="msg">Charge un GPX ou active « Tracer » puis touche la carte pour poser des points.</div>
 
+<style>
+  [hidden]{display:none!important}
+  #vid{position:fixed;inset:0;background:#000;z-index:10000;display:none;color:#fff}
+  #vid.on{display:block}
+  #vidStage{position:absolute;inset:0}
+  #vidStage video,#vidStage iframe{width:100%;height:100%;border:0;background:#000}
+  #vidTop{position:absolute;top:6px;right:6px;display:flex;gap:6px;z-index:2;opacity:.65}
+  #vidTop button{padding:6px 10px;font-size:14px;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555}
+  #vidBar{position:absolute;left:0;right:0;bottom:0;z-index:1;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:2px 16px;padding:4px 10px calc(4px + env(safe-area-inset-bottom));background:rgba(0,0,0,.55);pointer-events:none;font-size:14px}
+  #vidBar.off{display:none}
+  #vidBar b{font-size:18px}
+  #vidBar small{opacity:.7;font-size:11px;margin-left:2px}
+  #vidInfo{width:100%;text-align:center;font-size:12px;opacity:.85}
+  #vidSetup{position:absolute;inset:0;z-index:3;background:rgba(15,23,42,.97);display:flex;flex-direction:column;gap:12px;justify-content:center;padding:24px;max-width:560px;margin:0 auto}
+  #vidSetup input[type=url]{width:100%;background:var(--card);color:var(--tx);border:1px solid #334155;border-radius:8px;padding:12px;font-size:16px}
+  #vidMsg{color:#fca5a5;font-size:14px;min-height:18px}
+</style>
+<div id="vid">
+  <div id="vidStage"></div>
+  <div id="vidTop">
+    <button id="vidBarBtn" title="Afficher/masquer les métriques">📊</button>
+    <button id="vidChange" title="Changer de vidéo">🎞</button>
+    <button id="vidFs" title="Plein écran">⛶</button>
+    <button id="vidClose" title="Fermer">✕</button>
+  </div>
+  <div id="vidBar">
+    <span><b id="vW">–</b><small>W</small></span>
+    <span><b id="vHr">–</b><small>bpm</small></span>
+    <span><b id="vCad">–</b><small>tr/min</small></span>
+    <span><b id="vSpd">–</b><small>km/h</small></span>
+    <span><b id="vKm">–</b><small>km</small> <small id="vLeft"></small></span>
+    <span><b id="vTime">0:00</b></span>
+    <div id="vidInfo"><span id="vInfo"></span></div>
+  </div>
+  <div id="vidSetup">
+    <b>Mode vidéo</b>
+    <input id="vidUrl" type="url" placeholder="Colle un lien YouTube" inputmode="url">
+    <button id="vidGo">Ouvrir le lien</button>
+    <label class="btn" style="text-align:center">Ou choisir un fichier vidéo<input id="vidFile" type="file" accept="video/*" hidden></label>
+    <div id="vidMsg"></div>
+    <button id="vidSetupBack">Retour</button>
+  </div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -230,6 +274,8 @@ function drawProfile(e){
   pts.forEach((p,i)=>g.lineTo(X(p.d),Y(e[i])));
   g.lineTo(X(D),H-18); g.closePath();
   g.fillStyle='rgba(249,115,22,.35)'; g.fill();
+  g.beginPath();
+  pts.forEach((p,i)=>i?g.lineTo(X(p.d),Y(e[i])):g.moveTo(X(p.d),Y(e[i])));
   g.strokeStyle='#f97316'; g.lineWidth=2; g.stroke();
   g.fillStyle='#94a3b8'; g.font='11px system-ui';
   g.fillText(Math.round(mx)+' m',2,12);
@@ -267,5 +313,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
 </script>
 <script src="ble.js"></script>
 <script src="export.js"></script>
+<script src="video.js"></script>
 </body>
 </html>
