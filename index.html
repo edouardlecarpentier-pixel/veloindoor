@@ -55,11 +55,13 @@
 <div class="bar">
   <button id="btnRide">Connecter le Ride</button>
   <button id="btnHr">Connecter la FC</button>
+  <button id="btnPad">Connecter les manettes</button>
   <button id="btnVideo">Mode vidéo</button>
 </div>
 <div class="live">
   <div class="stat"><b id="lPow">–</b><span>W</span></div>
   <div class="stat"><b id="lCad">–</b><span>tr/min</span></div>
+  <div class="stat"><b id="lGear">–</b><span>vitesse</span></div>
   <div class="stat"><b id="lSpd">–</b><span>km/h</span></div>
   <div class="stat"><b id="lHr">–</b><span>bpm</span></div>
 </div>
@@ -95,6 +97,7 @@
   <input id="inDiff" type="number" value="100" min="0" max="100"> % de pente
   <button id="btnSim">Rouler le parcours</button>
 </div>
+<div id="padDbg" style="padding:0 16px;font:11px monospace;color:var(--mut)"></div>
 <div id="bleMsg">Ferme Zwift avant de connecter le Ride. Chrome sur Android et https requis.</div>
 <style>
   .hline{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 16px;padding:10px;background:var(--card);border-radius:8px;font-size:14px}
