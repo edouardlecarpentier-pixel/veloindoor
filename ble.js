@@ -134,6 +134,23 @@ function logPad(t){padLog.unshift(t); if(padLog.length>8) padLog.pop(); $('padDb
 // un état par manette (gauche et droite sont deux appareils distincts) ; le 1er message sert de référence.
 // Rôle fixé par l'ordre de connexion : 1re manette = gauche = vitesse inférieure, 2e = droite = vitesse supérieure.
 const padFree=[-1,1];
+// Certains boutons (0x1000, 0x2000) sont signalés en même temps par les DEUX manettes : on les ignore (+1 et −1 s'annulaient).
+// Un appui n'est pris en compte qu'après 200 ms, s'il n'a pas été signalé par l'autre manette entre-temps.
+const padPend={};
+function padPress(tag,dir,fresh){
+  const po=padPend[tag==='G'?'D':'G'];
+  if(po&&po.mask&fresh){
+    const common=po.mask&fresh; po.mask&=~common; fresh&=~common;
+    logPad('doublon 0x'+common.toString(16)+' ignoré (signalé par G et D)');
+  }
+  if(!fresh) return;
+  const p=padPend[tag]||(padPend[tag]={mask:0,timer:null});
+  p.mask|=fresh; clearTimeout(p.timer);
+  p.timer=setTimeout(()=>{
+    if(p.mask){ shiftGear(dir); logPad(tag+(dir<0?'(−)':'(+)')+' appui 0x'+p.mask.toString(16)+' → vitesse '+gear+'/'+GEARS); }
+    p.mask=0;
+  },200);
+}
 function makePadHandler(tag,dir){
   let prev=null;
   return dv=>{
@@ -141,7 +158,7 @@ function makePadHandler(tag,dir){
       let map=0,sh=0,o=2,b;                  // varint protobuf (champ 1) : bit à 0 = bouton appuyé
       do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
       const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev, changed=pressed!==prev; prev=pressed;
-      if(fresh){ shiftGear(dir); logPad(tag+(dir<0?'(−)':'(+)')+' appui 0x'+fresh.toString(16)+' → vitesse '+gear+'/'+GEARS); }
+      if(fresh) padPress(tag,dir,fresh);
       else if(changed) logPad(tag+' relâché / état 0x'+pressed.toString(16));
     }
   };
