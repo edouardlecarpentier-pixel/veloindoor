@@ -205,7 +205,9 @@ $('btnGen').onclick=()=>{
 
 // ---------- Parcours GPX (simulation de pente) ----------
 let simDist=0, lastGradeAt=0, simMarker=null;
-function getRoute(){return (typeof pts!=='undefined'&&pts.length>1)?pts:null}
+const FLAT=[{lat:0,lon:0,d:0,ele:0},{lat:0,lon:0,d:200000,ele:0}];   // route plate de 200 km pour le mode « pédale libre »
+let freeRide=false;
+function getRoute(){return freeRide?FLAT:(typeof pts!=='undefined'&&pts.length>1)?pts:null}
 function interp(r,d){
   d=Math.max(0,Math.min(d,r[r.length-1].d));
   let lo=0,hi=r.length-1;
@@ -238,7 +240,8 @@ function sendGrade(g){
   const v=Math.round(g*100);                         // pente en 0,01 %
   send([0x11,0,0,v&0xFF,(v>>8)&0xFF,40,51]);         // vent 0, Crr 0,004, Cw 0,51
 }
-async function startSim(){
+async function startSim(free){
+  freeRide=!!free;
   if(!T.cp){status('Connecte d\'abord le Ride.');return}
   if(tick) return;
   if(!getRoute()){status('Charge ou trace d\'abord un parcours.');return}
@@ -246,8 +249,8 @@ async function startSim(){
   await send([0x00]); await send([0x07]);
   samples.length=0; startedAt=Date.now(); window.VI.startTime=startedAt;
   try{wake=await navigator.wakeLock.request('screen')}catch(e){}
-  $('btnSim').textContent='Arrêter le parcours'; $('btnSim').classList.add('on');
-  if(typeof L!=='undefined'&&typeof map!=='undefined')
+  (free?$('btnFree'):$('btnSim')).textContent='Arrêter'; (free?$('btnFree'):$('btnSim')).classList.add('on');
+  if(!free&&typeof L!=='undefined'&&typeof map!=='undefined')
     simMarker=L.circleMarker([getRoute()[0].lat,getRoute()[0].lon],{radius:8,color:'#fff',fillColor:'#22c55e',fillOpacity:1}).addTo(map);
   tick=setInterval(()=>{
     const r=getRoute(), total=r[r.length-1].d;
@@ -255,14 +258,15 @@ async function startSim(){
     const d0=Math.max(0,simDist-60), d1=Math.min(total,simDist+60);
     let g=d1>d0?(interp(r,d1).ele-interp(r,d0).ele)/(d1-d0)*100:0;
     g=Math.max(-10,Math.min(15,g))*((+$('inDiff').value||100)/100);
-    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(Math.max(-10,Math.min(20,g+gearOffset())))}
+    const gSent=Math.max(-10,Math.min(20,g+gearOffset()));
+    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(gSent)}
     showSlope(g,lookAhead(r,simDist,g,((+$('inDiff').value||100)/100),total));
     const p=interp(r,simDist);
     if(simMarker) simMarker.setLatLng([p.lat,p.lon]);
     $('timer').textContent=fmt((Date.now()-startedAt)/1000);
     $('lKm').textContent=(simDist/1000).toFixed(2);
     $('lLeft').textContent=Math.max(0,(total-simDist)/1000).toFixed(2);
-    $('stepInfo').textContent=(simDist/1000).toFixed(2)+' / '+(total/1000).toFixed(1)+' km · pente '+g.toFixed(1)+' % · alt. '+Math.round(p.ele)+' m';
+    $('stepInfo').textContent=(simDist/1000).toFixed(2)+' / '+(total/1000).toFixed(1)+' km · vitesse '+gear+'/'+GEARS+' · pente envoyée au Ride '+gSent.toFixed(1)+' %';
     samples.push({t:Math.round((Date.now()-startedAt)/1000),power:live.power,cad:live.cad,speed:live.speed,hr:live.hr});
     if(simDist>=total) stopErg(true);
   },1000);
@@ -312,6 +316,7 @@ async function stopErg(finished){
   if(wake){try{wake.release()}catch(e){} wake=null}
   $('btnErg').textContent='Démarrer';$('btnErg').classList.remove('on');
   $('btnSim').textContent='Rouler le parcours';$('btnSim').classList.remove('on');
+  $('btnFree').textContent='Pédale libre';$('btnFree').classList.remove('on');freeRide=false;
   if(simMarker){map.removeLayer(simMarker);simMarker=null}
   $('stepInfo').textContent='';mode=null;
   $('slopeNow').textContent='';$('slopeNext').textContent='';$('slopeNext').dataset.dir='';
@@ -325,6 +330,7 @@ $('btnPad').onclick=connectPad;showGear();
 $('lGear').parentNode.onclick=()=>{gear=GEAR0;showGear();logPad('vitesse remise à '+GEAR0)};
 $('btnErg').onclick=()=>tick?stopErg(false):startErg();
 $('btnSim').onclick=()=>tick?stopErg(false):startSim();
+$('btnFree').onclick=()=>tick?stopErg(false):startSim(true);
 $('wPlus').onclick=()=>setTarget(target+10);
 $('wMinus').onclick=()=>setTarget(target-10);
 $('inW').addEventListener('input',e=>{ if(!tick){target=+e.target.value||0;$('tgt').textContent=target} });
