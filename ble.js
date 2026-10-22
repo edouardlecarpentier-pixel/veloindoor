@@ -153,8 +153,11 @@ function padPress(tag,dir,fresh){
 }
 // Étalonnage : l'utilisateur appuie sur le bouton « descendre » puis « monter » ; on retient le code du bouton
 // (et la manette qui le signale, ou aucune si les deux le signalent en même temps).
-let padRules=[], calib=null;
-try{padRules=JSON.parse(localStorage.getItem('vi_padrules')||'[]')}catch(e){}
+// Réglage par défaut relevé sur le matériel : bas gauche = 0x200 sur la manette G (descendre) ;
+// bas droite = 0x2000, signalé par G et D à la fois (monter) ; 0x200 sur D (monter) comme avant.
+const PAD_DEFAULT=[{bit:0x200,dev:'G',dir:-1},{bit:0x2000,dev:null,dir:1},{bit:0x200,dev:'D',dir:1}];
+let padRules=PAD_DEFAULT, calib=null;
+try{const r=JSON.parse(localStorage.getItem('vi_padrules')||'null'); if(Array.isArray(r)&&r.length) padRules=r}catch(e){}
 function padApply(tag,fresh){
   const now=Date.now();
   for(const r of padRules){
