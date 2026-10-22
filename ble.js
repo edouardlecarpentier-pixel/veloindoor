@@ -144,6 +144,7 @@ function onPad(dv){
 }
 async function connectPad(){
   try{
+    $('btnPad').textContent='Recherche…';
     status('Recherche des manettes… (allume-les en appuyant dessus ; ferme Zwift partout)');
     const c=await bleConnect(0xFC82,()=>{
       $('btnPad').classList.remove('on');$('btnPad').textContent='Connecter les manettes';status('Manettes déconnectées.');
@@ -154,7 +155,11 @@ async function connectPad(){
     padPrev=0; showGear();
     $('btnPad').classList.add('on');$('btnPad').textContent='Manettes : '+(c.name||'connectées');
     status('Manettes connectées. Appuie sur les palettes : vitesse + / −.');
-  }catch(e){status('Connexion manettes impossible : '+e.message)}
+  }catch(e){
+    const m=(e&&e.message)||String(e);
+    $('btnPad').textContent='Manettes : '+m.slice(0,60);
+    status('Connexion manettes impossible : '+m);
+  }
 }
 
 // ---------- Exercice ERG ----------
