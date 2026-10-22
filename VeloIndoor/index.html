@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<title>VeloIndoor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--tx:#e2e8f0;--mut:#94a3b8;--acc:#f97316}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+  header{padding:10px 16px;font-weight:700;font-size:18px}
+  #map{height:45vh;min-height:260px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px}
+  button,label.btn{background:var(--card);color:var(--tx);border:1px solid #334155;border-radius:8px;padding:10px 14px;font-size:15px}
+  button.on{background:var(--acc);border-color:var(--acc);color:#111}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px}
+  .stat{background:var(--card);border-radius:8px;padding:8px;text-align:center}
+  .stat b{display:block;font-size:20px}
+  .stat span{font-size:12px;color:var(--mut)}
+  #prof{width:calc(100% - 32px);height:160px;margin:12px 16px;background:var(--card);border-radius:8px;display:block}
+  #msg{padding:0 16px 16px;color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<header>VeloIndoor</header>
+<div id="map"></div>
+<div class="bar">
+  <label class="btn">Charger un GPX<input id="file" type="file" accept=".gpx" hidden></label>
+  <button id="draw">Tracer sur la carte</button>
+  <button id="undo">Annuler point</button>
+  <button id="clear">Effacer</button>
+</div>
+<div class="stats">
+  <div class="stat"><b id="sDist">–</b><span>km</span></div>
+  <div class="stat"><b id="sUp">–</b><span>D+ (m)</span></div>
+  <div class="stat"><b id="sDown">–</b><span>D- (m)</span></div>
+  <div class="stat"><b id="sMax">–</b><span>pente max %</span></div>
+</div>
+<canvas id="prof"></canvas>
+<div id="msg">Charge un GPX ou active « Tracer » puis touche la carte pour poser des points.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const map=L.map('map').setView([46.6,2.5],6);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+
+let pts=[];            // {lat,lon,ele,d}
+let line=null, drawing=false, marker=null;
+const waypoints=[];    // points posés à la main
+
+const R=6371000, rad=x=>x*Math.PI/180;
+function hav(a,b){
+  const dLat=rad(b.lat-a.lat), dLon=rad(b.lon-a.lon);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function setMsg(t){$('msg').textContent=t}
+
+// ---------- GPX ----------
+function parseGpx(text){
+  const xml=new DOMParser().parseFromString(text,'application/xml');
+  if(xml.querySelector('parsererror')) throw new Error('GPX invalide');
+  let nodes=[...xml.getElementsByTagName('trkpt')];
+  if(!nodes.length) nodes=[...xml.getElementsByTagName('rtept')];
+  return nodes.map(n=>{
+    const e=n.getElementsByTagName('ele')[0];
+    return {lat:+n.getAttribute('lat'),lon:+n.getAttribute('lon'),ele:e?+e.textContent:null};
+  });
+}
+$('file').addEventListener('change',async ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  try{
+    const p=parseGpx(await f.text());
+    if(p.length<2) throw new Error('Aucun point dans le GPX');
+    waypoints.length=0;
+    await setRoute(p);
+  }catch(e){setMsg('Erreur : '+e.message)}
+  ev.target.value='';
+});
+
+// ---------- altitude ----------
+async function fetchElevations(list){
+  const out=[];
+  for(let i=0;i<list.length;i+=100){
+    const c=list.slice(i,i+100);
+    const url='https://api.open-meteo.com/v1/elevation?latitude='+c.map(p=>p.lat.toFixed(5)).join(',')+
+              '&longitude='+c.map(p=>p.lon.toFixed(5)).join(',');
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('Service altitude indisponible');
+    out.push(...(await r.json()).elevation);
+  }
+  return out;
+}
+function densify(list,step=100){
+  const res=[list[0]];
+  for(let i=1;i<list.length;i++){
+    const a=list[i-1], b=list[i], n=Math.max(1,Math.round(hav(a,b)/step));
+    for(let k=1;k<=n;k++) res.push({lat:a.lat+(b.lat-a.lat)*k/n,lon:a.lon+(b.lon-a.lon)*k/n,ele:null});
+  }
+  return res;
+}
+function thin(list,max){
+  if(list.length<=max) return list;
+  const s=(list.length-1)/(max-1), out=[];
+  for(let i=0;i<max;i++) out.push(list[Math.round(i*s)]);
+  return out;
+}
+
+async function setRoute(raw){
+  let p=raw;
+  if(drawing || p.some(x=>x.ele==null)){
+    setMsg('Calcul du dénivelé…');
+    p=thin(densify(p),1000);
+    try{
+      const e=await fetchElevations(p);
+      p=p.map((x,i)=>({...x,ele:e[i]}));
+    }catch(err){setMsg('Altitude impossible : '+err.message); p=p.map(x=>({...x,ele:x.ele??0}))}
+  }else{
+    p=thin(p,2000);
+  }
+  let d=0;
+  p.forEach((x,i)=>{ if(i) d+=hav(p[i-1],x); x.d=d; });
+  pts=p;
+  draw();
+  setMsg(pts.length+' points. Altitude lissée, D+ avec seuil de 3 m.');
+}
+
+// ---------- stats & rendu ----------
+function smooth(a,w=2){
+  return a.map((_,i)=>{let s=0,n=0;for(let k=Math.max(0,i-w);k<=Math.min(a.length-1,i+w);k++){s+=a[k];n++}return s/n});
+}
+function stats(){
+  const e=smooth(pts.map(p=>p.ele));
+  let up=0,down=0,ref=e[0],maxG=0;
+  for(let i=1;i<e.length;i++){
+    const df=e[i]-ref;
+    if(df>=3){up+=df;ref=e[i]} else if(df<=-3){down-=df;ref=e[i]}
+    const dd=pts[i].d-pts[i-1].d;
+    if(dd>=50) maxG=Math.max(maxG,Math.abs((e[i]-e[i-1])/dd*100));
+  }
+  return {e,up,down,maxG};
+}
+function draw(){
+  if(line) map.removeLayer(line);
+  if(pts.length<2) return;
+  line=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:'#f97316',weight:4}).addTo(map);
+  if(!drawing) map.fitBounds(line.getBounds(),{padding:[20,20]});
+  const s=stats();
+  $('sDist').textContent=(pts[pts.length-1].d/1000).toFixed(1);
+  $('sUp').textContent=Math.round(s.up);
+  $('sDown').textContent=Math.round(s.down);
+  $('sMax').textContent=s.maxG.toFixed(1);
+  drawProfile(s.e);
+}
+function drawProfile(e){
+  const c=$('prof'), dpr=devicePixelRatio||1;
+  c.width=c.clientWidth*dpr; c.height=c.clientHeight*dpr;
+  const g=c.getContext('2d'); g.scale(dpr,dpr);
+  const W=c.clientWidth,H=c.clientHeight,P=28;
+  const mn=Math.min(...e),mx=Math.max(...e),rg=Math.max(10,mx-mn),D=pts[pts.length-1].d;
+  const X=d=>P+d/D*(W-P-6), Y=v=>H-18-(v-mn)/rg*(H-30);
+  g.clearRect(0,0,W,H);
+  g.beginPath(); g.moveTo(X(0),H-18);
+  pts.forEach((p,i)=>g.lineTo(X(p.d),Y(e[i])));
+  g.lineTo(X(D),H-18); g.closePath();
+  g.fillStyle='rgba(249,115,22,.35)'; g.fill();
+  g.strokeStyle='#f97316'; g.lineWidth=2; g.stroke();
+  g.fillStyle='#94a3b8'; g.font='11px system-ui';
+  g.fillText(Math.round(mx)+' m',2,12);
+  g.fillText(Math.round(mn)+' m',2,H-20);
+  g.fillText('0',P,H-4); g.fillText((D/1000).toFixed(1)+' km',W-50,H-4);
+}
+addEventListener('resize',()=>{if(pts.length>1) drawProfile(stats().e)});
+
+// ---------- tracé manuel ----------
+$('draw').onclick=()=>{
+  drawing=!drawing;
+  $('draw').classList.toggle('on',drawing);
+  setMsg(drawing?'Touche la carte pour poser des points.':'Tracé terminé.');
+};
+map.on('click',async ev=>{
+  if(!drawing) return;
+  waypoints.push({lat:ev.latlng.lat,lon:ev.latlng.lng,ele:null});
+  if(waypoints.length>=2) await setRoute(waypoints.slice());
+  else setMsg('Premier point posé.');
+});
+$('undo').onclick=async()=>{
+  if(!waypoints.length) return;
+  waypoints.pop();
+  if(waypoints.length>=2) await setRoute(waypoints.slice()); else clearAll(false);
+};
+$('clear').onclick=()=>clearAll(true);
+function clearAll(w){
+  if(w) waypoints.length=0;
+  pts=[]; if(line){map.removeLayer(line);line=null}
+  ['sDist','sUp','sDown','sMax'].forEach(i=>$(i).textContent='–');
+  const c=$('prof'); c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
