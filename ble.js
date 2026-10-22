@@ -137,15 +137,13 @@ const padFree=[-1,1];
 function makePadHandler(tag,dir){
   let prev=null;
   return dv=>{
-    let info='';
     if(dv.byteLength>=3&&dv.getUint8(0)===0x23&&dv.getUint8(1)===0x08){
       let map=0,sh=0,o=2,b;                  // varint protobuf (champ 1) : bit à 0 = bouton appuyé
       do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
-      const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev; prev=pressed;
-      info=' | appuyés 0x'+pressed.toString(16)+(fresh?' nouveau 0x'+fresh.toString(16):'');
-      if(fresh) shiftGear(dir);               // tout nouvel appui sur cette manette
+      const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev, changed=pressed!==prev; prev=pressed;
+      if(fresh){ shiftGear(dir); logPad(tag+(dir<0?'(−)':'(+)')+' appui 0x'+fresh.toString(16)+' → vitesse '+gear+'/'+GEARS); }
+      else if(changed) logPad(tag+' relâché / état 0x'+pressed.toString(16));
     }
-    logPad(tag+(dir<0?'(−) ':'(+) ')+hex(dv)+info);
   };
 }
 async function connectPad(){
@@ -324,6 +322,7 @@ async function stopErg(finished){
 $('btnRide').onclick=connectTrainer;
 $('btnHr').onclick=connectHr;
 $('btnPad').onclick=connectPad;showGear();
+$('lGear').parentNode.onclick=()=>{gear=GEAR0;showGear();logPad('vitesse remise à '+GEAR0)};
 $('btnErg').onclick=()=>tick?stopErg(false):startErg();
 $('btnSim').onclick=()=>tick?stopErg(false):startSim();
 $('wPlus').onclick=()=>setTarget(target+10);
