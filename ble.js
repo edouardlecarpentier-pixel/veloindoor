@@ -151,6 +151,44 @@ function padPress(tag,dir,fresh){
     p.mask=0;
   },200);
 }
+// Étalonnage : l'utilisateur appuie sur le bouton « descendre » puis « monter » ; on retient le code du bouton
+// (et la manette qui le signale, ou aucune si les deux le signalent en même temps).
+let padRules=[], calib=null;
+try{padRules=JSON.parse(localStorage.getItem('vi_padrules')||'[]')}catch(e){}
+function padApply(tag,fresh){
+  const now=Date.now();
+  for(const r of padRules){
+    if(!(fresh&r.bit)||(r.dev&&r.dev!==tag)) continue;
+    if(!r.dev){ if(now-(r.t||0)<300) continue; r.t=now; }   // bouton signalé par les deux manettes : une seule fois
+    shiftGear(r.dir); logPad(tag+' bouton 0x'+r.bit.toString(16)+' → vitesse '+gear+'/'+GEARS);
+  }
+}
+function waitPadPress(){
+  return new Promise(res=>{
+    calib={ev:[]};
+    const t0=setInterval(()=>{ if(calib&&calib.ev.length){clearInterval(t0);setTimeout(()=>{const ev=calib.ev;calib=null;res(ev)},700)} },50);
+  });
+}
+async function calibratePad(){
+  if(padN<1){status('Connecte d\'abord les manettes.');return}
+  const rules=[];
+  for(const st of [{dir:-1,name:'BAS GAUCHE (descendre)'},{dir:1,name:'BAS DROITE (monter)'}]){
+    $('btnCal').textContent='Appuie sur le bouton '+st.name;
+    status('Étalonnage : appuie UNE fois sur le bouton '+st.name+'.');
+    const ev=await waitPadPress(), f=ev[0], bit=f.fresh&-f.fresh;
+    const both=ev.some(e=>e.tag!==f.tag&&(e.fresh&bit));
+    const dev=both?null:f.tag;
+    if(rules.some(r=>r.bit===bit&&(r.dev===null||dev===null||r.dev===dev))){
+      $('btnCal').textContent='Étalonner les vitesses';status('Même bouton détecté deux fois (0x'+bit.toString(16)+'). Recommence.');return;
+    }
+    rules.push({bit,dev,dir:st.dir});
+    await new Promise(r=>setTimeout(r,800));
+  }
+  padRules=rules;
+  try{localStorage.setItem('vi_padrules',JSON.stringify(rules))}catch(e){}
+  $('btnCal').textContent='Vitesses étalonnées ✓';
+  status('Étalonnage terminé : '+rules.map(r=>(r.dir<0?'−':'+')+' = 0x'+r.bit.toString(16)+(r.dev?' ('+r.dev+')':' (G+D)')).join(' · '));
+}
 function makePadHandler(tag,dir){
   let prev=null;
   return dv=>{
@@ -158,7 +196,9 @@ function makePadHandler(tag,dir){
       let map=0,sh=0,o=2,b;                  // varint protobuf (champ 1) : bit à 0 = bouton appuyé
       do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
       const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev, changed=pressed!==prev; prev=pressed;
-      if(fresh) padPress(tag,dir,fresh);
+      if(fresh&&calib) calib.ev.push({tag,fresh});
+      else if(fresh&&padRules.length) padApply(tag,fresh);
+      else if(fresh) padPress(tag,dir,fresh);
       else if(changed) logPad(tag+' relâché / état 0x'+pressed.toString(16));
     }
   };
@@ -343,7 +383,8 @@ async function stopErg(finished){
 
 $('btnRide').onclick=connectTrainer;
 $('btnHr').onclick=connectHr;
-$('btnPad').onclick=connectPad;showGear();
+$('btnPad').onclick=connectPad;
+$('btnCal').onclick=calibratePad;showGear();
 $('lGear').parentNode.onclick=()=>{gear=GEAR0;showGear();logPad('vitesse remise à '+GEAR0)};
 $('btnErg').onclick=()=>tick?stopErg(false):startErg();
 $('btnSim').onclick=()=>tick?stopErg(false):startSim();
