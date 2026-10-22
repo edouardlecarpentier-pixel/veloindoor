@@ -61,7 +61,7 @@ async function bleConnect(svc,onDisc,dataSvc=svc,namePrefix){
     const B=window.BleClient;
     const dev=await B.requestDevice(namePrefix?{services:[cu(svc)],namePrefix,optionalServices:[cu(dataSvc)]}:{services:[cu(svc)]});
     await B.connect(dev.deviceId,()=>onDisc());
-    return {name:dev.name,
+    return {name:dev.name,id:dev.deviceId,
       notify:(c,cb)=>B.startNotifications(dev.deviceId,cu(dataSvc),cu(c),cb),
       write:(c,bytes,s2)=>B.write(dev.deviceId,cu(s2||dataSvc),cu(c),new DataView(new Uint8Array(bytes).buffer))};
   }
@@ -70,7 +70,7 @@ async function bleConnect(svc,onDisc,dataSvc=svc,namePrefix){
   const dev=await navigator.bluetooth.requestDevice({filters,optionalServices:[dataSvc]});
   dev.addEventListener('gattserverdisconnected',onDisc);
   const srv=await dev.gatt.connect(), s=await srv.getPrimaryService(dataSvc);
-  return {name:dev.name,
+  return {name:dev.name,id:dev.id,
     async notify(c,cb){const ch=await s.getCharacteristic(c);await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',e=>cb(e.target.value))},
     async write(c,bytes){const ch=await s.getCharacteristic(c);await ch.writeValueWithResponse(new Uint8Array(bytes))}};
 }
@@ -133,100 +133,90 @@ function hex(dv){return Array.from(new Uint8Array(dv.buffer,dv.byteOffset,dv.byt
 function logPad(t){padLog.unshift(t); if(padLog.length>8) padLog.pop(); $('padDbg').textContent=padLog.join('\n')}
 // un état par manette (gauche et droite sont deux appareils distincts) ; le 1er message sert de référence.
 // Rôle fixé par l'ordre de connexion : 1re manette = gauche = vitesse inférieure, 2e = droite = vitesse supérieure.
-const padFree=[-1,1];
-// Certains boutons (0x1000, 0x2000) sont signalés en même temps par les DEUX manettes : on les ignore (+1 et −1 s'annulaient).
+// Gauche / droite : les deux manettes sont deux appareils « Zwift Ride » identiques. Le côté est appris une fois
+// (bouton « Étalonner les vitesses ») et mémorisé par identifiant d'appareil ; sans étalonnage, l'ordre de connexion
+// sert de repli (1re = gauche = vitesse −, 2e = droite = vitesse +).
+let padSide={};                                   // id appareil → −1 (gauche) | +1 (droite)
+try{padSide=JSON.parse(localStorage.getItem('vi_padsides')||'{}')||{}}catch(e){}
+const pads={};                                    // id appareil → {dir, tag}
+const padOrder=[-1,1];
+const sideTag=d=>d<0?'G':'D';
+const padDir=id=>padSide[id]||pads[id].order;
+// Certains boutons (0x1000, 0x2000) sont signalés par les DEUX manettes en même temps : on les ignore (+1 et −1 s'annulaient).
 // Un appui n'est pris en compte qu'après 200 ms, s'il n'a pas été signalé par l'autre manette entre-temps.
-const padPend={};
-function padPress(tag,dir,fresh){
-  const po=padPend[tag==='G'?'D':'G'];
+const padPend={}; let calib=null;
+function padPress(id,fresh){
+  const other=Object.keys(pads).find(k=>k!==id), po=other&&padPend[other];
   if(po&&po.mask&fresh){
     const common=po.mask&fresh; po.mask&=~common; fresh&=~common;
     logPad('doublon 0x'+common.toString(16)+' ignoré (signalé par G et D)');
   }
   if(!fresh) return;
-  const p=padPend[tag]||(padPend[tag]={mask:0,timer:null});
+  const p=padPend[id]||(padPend[id]={mask:0,timer:null});
   p.mask|=fresh; clearTimeout(p.timer);
   p.timer=setTimeout(()=>{
-    if(p.mask){ shiftGear(dir); logPad(tag+(dir<0?'(−)':'(+)')+' appui 0x'+p.mask.toString(16)+' → vitesse '+gear+'/'+GEARS); }
+    if(p.mask&&pads[id]){ const d=padDir(id); shiftGear(d); logPad(sideTag(d)+(d<0?'(−)':'(+)')+' appui 0x'+p.mask.toString(16)+' → vitesse '+gear+'/'+GEARS); }
     p.mask=0;
   },200);
 }
-// Étalonnage : l'utilisateur appuie sur le bouton « descendre » puis « monter » ; on retient le code du bouton
-// (et la manette qui le signale, ou aucune si les deux le signalent en même temps).
-// Réglage par défaut relevé sur le matériel : bas gauche = 0x200 sur la manette G (descendre) ;
-// bas droite = 0x2000, signalé par G et D à la fois (monter) ; 0x200 sur D (monter) comme avant.
-const PAD_DEFAULT=[{bit:0x200,dev:'G',dir:-1},{bit:0x2000,dev:null,dir:1},{bit:0x200,dev:'D',dir:1}];
-let padRules=PAD_DEFAULT, calib=null;
-try{const r=JSON.parse(localStorage.getItem('vi_padrules')||'null'); if(Array.isArray(r)&&r.length) padRules=r}catch(e){}
-function padApply(tag,fresh){
-  const now=Date.now();
-  for(const r of padRules){
-    if(!(fresh&r.bit)||(r.dev&&r.dev!==tag)) continue;
-    if(!r.dev){ if(now-(r.t||0)<300) continue; r.t=now; }   // bouton signalé par les deux manettes : une seule fois
-    shiftGear(r.dir); logPad(tag+' bouton 0x'+r.bit.toString(16)+' → vitesse '+gear+'/'+GEARS);
-  }
-}
-function waitPadPress(){
-  return new Promise(res=>{
-    calib={ev:[]};
-    const t0=setInterval(()=>{ if(calib&&calib.ev.length){clearInterval(t0);setTimeout(()=>{const ev=calib.ev;calib=null;res(ev)},700)} },50);
-  });
-}
-async function calibratePad(){
-  if(padN<1){status('Connecte d\'abord les manettes.');return}
-  const rules=[];
-  for(const st of [{dir:-1,name:'BAS GAUCHE (descendre)'},{dir:1,name:'BAS DROITE (monter)'}]){
-    $('btnCal').textContent='Appuie sur le bouton '+st.name;
-    status('Étalonnage : appuie UNE fois sur le bouton '+st.name+'.');
-    const ev=await waitPadPress(), f=ev[0], bit=f.fresh&-f.fresh;
-    const both=ev.some(e=>e.tag!==f.tag&&(e.fresh&bit));
-    const dev=both?null:f.tag;
-    if(rules.some(r=>r.bit===bit&&(r.dev===null||dev===null||r.dev===dev))){
-      $('btnCal').textContent='Étalonner les vitesses';status('Même bouton détecté deux fois (0x'+bit.toString(16)+'). Recommence.');return;
-    }
-    rules.push({bit,dev,dir:st.dir});
-    await new Promise(r=>setTimeout(r,800));
-  }
-  padRules=rules;
-  try{localStorage.setItem('vi_padrules',JSON.stringify(rules))}catch(e){}
-  $('btnCal').textContent='Vitesses étalonnées ✓';
-  status('Étalonnage terminé : '+rules.map(r=>(r.dir<0?'−':'+')+' = 0x'+r.bit.toString(16)+(r.dev?' ('+r.dev+')':' (G+D)')).join(' · '));
-}
-function makePadHandler(tag,dir){
+function makePadHandler(id){
   let prev=null;
   return dv=>{
     if(dv.byteLength>=3&&dv.getUint8(0)===0x23&&dv.getUint8(1)===0x08){
       let map=0,sh=0,o=2,b;                  // varint protobuf (champ 1) : bit à 0 = bouton appuyé
       do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
       const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev, changed=pressed!==prev; prev=pressed;
-      if(fresh&&calib) calib.ev.push({tag,fresh});
-      else if(fresh&&padRules.length) padApply(tag,fresh);
-      else if(fresh) padPress(tag,dir,fresh);
-      else if(changed) logPad(tag+' relâché / état 0x'+pressed.toString(16));
+      if(fresh&&calib) calib.ev.push({id,fresh});
+      else if(fresh) padPress(id,fresh);
+      else if(changed) logPad(sideTag(padDir(id))+' relâché / état 0x'+pressed.toString(16));
     }
   };
 }
+// Étalonnage : un appui sur un bouton de la manette GAUCHE désigne cet appareil comme gauche, l'autre comme droite.
+async function calibratePad(){
+  const ids=Object.keys(pads);
+  if(ids.length<2){status('Connecte d\'abord les deux manettes.');return}
+  $('btnCal').textContent='Appuie sur un bouton de la manette GAUCHE';
+  status('Étalonnage : appuie UNE fois sur un bouton de la manette GAUCHE (bas gauche).');
+  const ev=await new Promise(res=>{
+    calib={ev:[]};
+    const t0=setInterval(()=>{ if(calib&&calib.ev.length){clearInterval(t0);setTimeout(()=>{const e=calib.ev;calib=null;res(e)},700)} },50);
+  });
+  // un bouton signalé par les deux appareils ne permet pas de les distinguer : on garde un appui propre à un appareil
+  const alone=ev.find(e=>!ev.some(o=>o.id!==e.id&&(o.fresh&e.fresh)));
+  if(!alone){$('btnCal').textContent='Étalonner les vitesses';status('Bouton signalé par les deux manettes : appuie sur le bouton bas gauche, pas sur un autre. Recommence.');return}
+  padSide={}; padSide[alone.id]=-1; ids.filter(k=>k!==alone.id).forEach(k=>padSide[k]=1);
+  try{localStorage.setItem('vi_padsides',JSON.stringify(padSide))}catch(e){}
+  $('btnCal').textContent='Gauche / droite étalonnées ✓';
+  status('Étalonnage terminé : manette qui a répondu = gauche (vitesse −), l\'autre = droite (vitesse +).');
+}
 async function connectPad(){
-  if(!padFree.length){status('Les deux manettes sont déjà connectées.');return}
-  let dir=padFree.shift();
+  if(Object.keys(pads).length>=2){status('Les deux manettes sont déjà connectées.');return}
+  let id=null, added=false, done=false;
   try{
     $('btnPad').textContent='Recherche…';
-    status('Recherche de la manette '+(dir<0?'GAUCHE (vitesse −)':'DROITE (vitesse +)')+'… (appuie sur une de ses palettes pour la réveiller)');
-    const tag=dir<0?'G':'D';
+    const want=Object.keys(pads).length?'l\'AUTRE manette':'une manette';
+    status('Recherche de '+want+'… (appuie sur une de ses palettes pour la réveiller)');
     const c=await bleConnect(0xFC82,()=>{
-      padFree.push(dir);padN=Math.max(0,padN-1);
-      $('btnPad').classList.toggle('on',padN>0);$('btnPad').textContent=padN>0?'Manettes : '+padN+'/2':'Connecter les manettes';status('Manette '+tag+' déconnectée.');
+      if(id){delete pads[id];delete padPend[id]}
+      const n=Object.keys(pads).length;
+      $('btnPad').classList.toggle('on',n>0);$('btnPad').textContent=n>0?'Manettes : '+n+'/2':'Connecter les manettes';status('Une manette déconnectée.');
     },ZSVC,'Zwift');
-    const h=makePadHandler(tag,dir);
+    id=c.id;
+    if(pads[id]) throw new Error('Cette manette est déjà connectée : choisis l\'autre dans la liste.');
+    pads[id]={order:padOrder.find(d=>!Object.values(pads).some(p=>p.order===d))||1}; added=true;
+    const h=makePadHandler(id);
     await c.notify(ZNOT,h);
     await c.notify(ZIND,h);
     await c.write(ZWR,[0x52,0x69,0x64,0x65,0x4F,0x6E,0x01,0x02]);   // « RideOn » + 01 02 (Ride)
-    padN++; showGear();
+    done=true;
+    const n=Object.keys(pads).length;
+    showGear();
     $('btnPad').classList.add('on');
-    $('btnPad').textContent=padN<2?'Manette '+tag+' OK · connecter l\'autre':'Manettes : 2/2';
-    status('Manette '+(dir<0?'gauche (vitesse −)':'droite (vitesse +)')+' connectée ('+(c.name||'?')+').'+(padN<2?' Appuie à nouveau sur le bouton pour l\'autre.':''));
+    $('btnPad').textContent=n<2?'Manette 1/2 OK · connecter l\'autre':'Manettes : 2/2';
+    status('Manette connectée ('+(c.name||'?')+').'+(n<2?' Appuie à nouveau sur le bouton pour l\'autre.':' Appuie sur « Étalonner les vitesses » pour fixer gauche et droite.'));
   }catch(e){
-    padFree.unshift(dir);
+    if(added&&!done) delete pads[id];
     const m=(e&&e.message)||String(e);
     $('btnPad').textContent='Manettes : '+m.slice(0,60);
     status('Connexion manettes impossible : '+m);
