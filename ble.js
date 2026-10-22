@@ -53,20 +53,23 @@ function loadNative(){
   });
   return nativeReady;
 }
-async function bleConnect(svc,onDisc){
+const cu=x=>typeof x==='string'?x:uuid(x);
+// svc : service recherché ; dataSvc : service portant les caractéristiques (par défaut svc) ; namePrefix : filtre de nom en plus
+async function bleConnect(svc,onDisc,dataSvc=svc,namePrefix){
   if(NATIVE){
     await loadNative();
     const B=window.BleClient;
-    const dev=await B.requestDevice({services:[uuid(svc)]});
+    const dev=await B.requestDevice(namePrefix?{services:[cu(svc)],namePrefix,optionalServices:[cu(dataSvc)]}:{services:[cu(svc)]});
     await B.connect(dev.deviceId,()=>onDisc());
     return {name:dev.name,
-      notify:(c,cb)=>B.startNotifications(dev.deviceId,uuid(svc),uuid(c),cb),
-      write:(c,bytes)=>B.write(dev.deviceId,uuid(svc),uuid(c),new DataView(new Uint8Array(bytes).buffer))};
+      notify:(c,cb)=>B.startNotifications(dev.deviceId,cu(dataSvc),cu(c),cb),
+      write:(c,bytes,s2)=>B.write(dev.deviceId,cu(s2||dataSvc),cu(c),new DataView(new Uint8Array(bytes).buffer))};
   }
   if(!navigator.bluetooth) throw new Error('Web Bluetooth indisponible : utilise Chrome sur Android, en https.');
-  const dev=await navigator.bluetooth.requestDevice({filters:[{services:[svc]}]});
+  const filters=[{services:[svc]}]; if(namePrefix) filters.push({namePrefix});
+  const dev=await navigator.bluetooth.requestDevice({filters,optionalServices:[dataSvc]});
   dev.addEventListener('gattserverdisconnected',onDisc);
-  const srv=await dev.gatt.connect(), s=await srv.getPrimaryService(svc);
+  const srv=await dev.gatt.connect(), s=await srv.getPrimaryService(dataSvc);
   return {name:dev.name,
     async notify(c,cb){const ch=await s.getCharacteristic(c);await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',e=>cb(e.target.value))},
     async write(c,bytes){const ch=await s.getCharacteristic(c);await ch.writeValueWithResponse(new Uint8Array(bytes))}};
@@ -111,6 +114,47 @@ async function connectHr(){
     $('btnHr').classList.add('on');$('btnHr').textContent='FC : '+(c.name||'connectée');
     status('FC connectée.');
   }catch(e){status('Connexion FC impossible : '+e.message)}
+}
+
+// ---------- Manettes Zwift Ride (changement de vitesse virtuelle) ----------
+// Protocole Zwift (non documenté officiellement) : service 0xFC82 annoncé, service de données
+// 00000001-19CA-4651-86E5-FA29DCDD09D1, notifications 02, écriture 03, indications 04, poignée de main « RideOn ».
+const ZSVC='00000001-19ca-4651-86e5-fa29dcdd09d1', ZNOT='00000002-19ca-4651-86e5-fa29dcdd09d1',
+      ZWR='00000003-19ca-4651-86e5-fa29dcdd09d1', ZIND='00000004-19ca-4651-86e5-fa29dcdd09d1';
+const GEARS=24, GEAR0=12, GEAR_STEP=0.5;     // 24 vitesses ; chaque cran = ±0,5 % de pente
+const BTN_UP=0x00200|0x02000, BTN_DN=0x00400|0x04000;   // à vérifier avec le diagnostic (padDbg)
+let gear=GEAR0, padPrev=0;
+const gearOffset=()=>(gear-GEAR0)*GEAR_STEP;
+function showGear(){$('lGear').textContent=gear+'/'+GEARS}
+function shiftGear(d){
+  gear=Math.max(1,Math.min(GEARS,gear+d)); showGear();
+  if(mode==='sim') lastGradeAt=0;            // renvoie la pente tout de suite
+}
+function hex(dv){return Array.from(new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength),b=>b.toString(16).padStart(2,'0')).join(' ')}
+function onPad(dv){
+  const raw=hex(dv); let info='';
+  if(dv.byteLength>=3&&dv.getUint8(0)===0x23&&dv.getUint8(1)===0x08){
+    let map=0,sh=0,o=2,b;                    // varint protobuf (champ 1) : bit à 0 = bouton appuyé
+    do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
+    const pressed=(~map>>>0)&0x1FFFF, fresh=pressed&~padPrev; padPrev=pressed;
+    info=' · appuyés 0x'+pressed.toString(16);
+    if(fresh&BTN_UP) shiftGear(1); else if(fresh&BTN_DN) shiftGear(-1);
+  }
+  $('padDbg').textContent=raw+info;
+}
+async function connectPad(){
+  try{
+    status('Recherche des manettes… (allume-les en appuyant dessus ; ferme Zwift partout)');
+    const c=await bleConnect(0xFC82,()=>{
+      $('btnPad').classList.remove('on');$('btnPad').textContent='Connecter les manettes';status('Manettes déconnectées.');
+    },ZSVC,'Zwift');
+    await c.notify(ZNOT,onPad);
+    await c.notify(ZIND,onPad);
+    await c.write(ZWR,[0x52,0x69,0x64,0x65,0x4F,0x6E,0x01,0x02]);   // « RideOn » + 01 02 (Ride)
+    padPrev=0; showGear();
+    $('btnPad').classList.add('on');$('btnPad').textContent='Manettes : '+(c.name||'connectées');
+    status('Manettes connectées. Appuie sur les palettes : vitesse + / −.');
+  }catch(e){status('Connexion manettes impossible : '+e.message)}
 }
 
 // ---------- Exercice ERG ----------
@@ -195,7 +239,7 @@ async function startSim(){
     const d0=Math.max(0,simDist-60), d1=Math.min(total,simDist+60);
     let g=d1>d0?(interp(r,d1).ele-interp(r,d0).ele)/(d1-d0)*100:0;
     g=Math.max(-10,Math.min(15,g))*((+$('inDiff').value||100)/100);
-    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(g)}
+    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(Math.max(-10,Math.min(20,g+gearOffset())))}
     showSlope(g,lookAhead(r,simDist,g,((+$('inDiff').value||100)/100),total));
     const p=interp(r,simDist);
     if(simMarker) simMarker.setLatLng([p.lat,p.lon]);
@@ -261,6 +305,7 @@ async function stopErg(finished){
 
 $('btnRide').onclick=connectTrainer;
 $('btnHr').onclick=connectHr;
+$('btnPad').onclick=connectPad;showGear();
 $('btnErg').onclick=()=>tick?stopErg(false):startErg();
 $('btnSim').onclick=()=>tick?stopErg(false):startSim();
 $('wPlus').onclick=()=>setTarget(target+10);
