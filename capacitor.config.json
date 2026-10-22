@@ -1,0 +1,8 @@
+{
+  "appId": "io.github.edouardlecarpentier.veloindoor",
+  "appName": "VeloIndoor",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

@@ -26,70 +26,89 @@ function parseBikeData(dv){
   if(f&64) out.power=s16();                  // W
   return out;
 }
-function onBikeData(e){
-  const d=parseBikeData(e.target.value);
+function onBikeData(v){
+  const d=parseBikeData(v);
   if(d.power!=null) live.power=d.power;
   if(d.cad!=null) live.cad=d.cad;
   if(d.speed!=null) live.speed=d.speed;
   refresh();
 }
-function onCpIndication(e){
-  const v=e.target.value;
+function onCpIndication(v){
   if(v.getUint8(0)!==0x80) return;
   const op=v.getUint8(1), res=v.getUint8(2);
   if(op===0x00) T.hasControl=(res===1);
   if(res!==1) status('Le Ride a refusé la commande 0x'+op.toString(16)+' (code '+res+').');
 }
+// ---------- Couche Bluetooth : Web Bluetooth (Chrome) ou plugin natif (appli Android) ----------
+const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+const uuid=n=>'0000'+n.toString(16).padStart(4,'0')+'-0000-1000-8000-00805f9b34fb';
+let nativeReady=null;
+function loadNative(){
+  if(nativeReady) return nativeReady;
+  nativeReady=new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src='native-ble.js';
+    s.onload=async()=>{try{await window.BleClient.initialize({androidNeverForLocation:true});res()}catch(e){rej(e)}};
+    s.onerror=()=>rej(new Error('Module Bluetooth natif absent'));
+    document.head.appendChild(s);
+  });
+  return nativeReady;
+}
+async function bleConnect(svc,onDisc){
+  if(NATIVE){
+    await loadNative();
+    const B=window.BleClient;
+    const dev=await B.requestDevice({services:[uuid(svc)]});
+    await B.connect(dev.deviceId,()=>onDisc());
+    return {name:dev.name,
+      notify:(c,cb)=>B.startNotifications(dev.deviceId,uuid(svc),uuid(c),cb),
+      write:(c,bytes)=>B.write(dev.deviceId,uuid(svc),uuid(c),new DataView(new Uint8Array(bytes).buffer))};
+  }
+  if(!navigator.bluetooth) throw new Error('Web Bluetooth indisponible : utilise Chrome sur Android, en https.');
+  const dev=await navigator.bluetooth.requestDevice({filters:[{services:[svc]}]});
+  dev.addEventListener('gattserverdisconnected',onDisc);
+  const srv=await dev.gatt.connect(), s=await srv.getPrimaryService(svc);
+  return {name:dev.name,
+    async notify(c,cb){const ch=await s.getCharacteristic(c);await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',e=>cb(e.target.value))},
+    async write(c,bytes){const ch=await s.getCharacteristic(c);await ch.writeValueWithResponse(new Uint8Array(bytes))}};
+}
+
 function send(bytes){
   // les écritures GATT doivent être sérialisées
-  T.queue=T.queue.then(()=>T.cp.writeValueWithResponse(new Uint8Array(bytes))).catch(e=>status('Erreur envoi : '+e.message));
+  T.queue=T.queue.then(()=>T.cp.write(0x2AD9,bytes)).catch(e=>status('Erreur envoi : '+e.message));
   return T.queue;
 }
 
 async function connectTrainer(){
-  if(!navigator.bluetooth){status('Web Bluetooth indisponible : utilise Chrome sur Android, en https.');return}
   try{
     status('Recherche du Ride… (ferme Zwift sur tous tes appareils)');
-    T.dev=await navigator.bluetooth.requestDevice({filters:[{services:[0x1826]}]});
-    T.dev.addEventListener('gattserverdisconnected',()=>{
-      T.hasControl=false;$('btnRide').classList.remove('on');$('btnRide').textContent='Connecter le Ride';
+    const c=await bleConnect(0x1826,()=>{
+      T.hasControl=false;T.cp=null;$('btnRide').classList.remove('on');$('btnRide').textContent='Connecter le Ride';
       status('Ride déconnecté.');
     });
-    const srv=await T.dev.gatt.connect();
-    const ftms=await srv.getPrimaryService(0x1826);
-    const bike=await ftms.getCharacteristic(0x2AD2);
-    await bike.startNotifications();
-    bike.addEventListener('characteristicvaluechanged',onBikeData);
-    T.cp=await ftms.getCharacteristic(0x2AD9);
-    await T.cp.startNotifications();                      // indications du point de contrôle
-    T.cp.addEventListener('characteristicvaluechanged',onCpIndication);
+    await c.notify(0x2AD2,onBikeData);
+    await c.notify(0x2AD9,onCpIndication);                // indications du point de contrôle
+    T.cp=c;
     await send([0x00]);                                   // demande de contrôle
-    $('btnRide').classList.add('on');$('btnRide').textContent='Ride : '+(T.dev.name||'connecté');
+    $('btnRide').classList.add('on');$('btnRide').textContent='Ride : '+(c.name||'connecté');
     status('Ride connecté. Pédale pour voir les valeurs.');
   }catch(e){status('Connexion Ride impossible : '+e.message)}
 }
 
 // ---------- Fréquence cardiaque ----------
 let hrDev=null;
-function onHr(e){
-  const v=e.target.value, f=v.getUint8(0);
+function onHr(v){
+  const f=v.getUint8(0);
   live.hr=(f&1)?v.getUint16(1,true):v.getUint8(1);
   refresh();
 }
 async function connectHr(){
-  if(!navigator.bluetooth){status('Web Bluetooth indisponible.');return}
   try{
     status('Recherche de la FC… Sur la montre, active « diffuser la fréquence cardiaque ».');
-    hrDev=await navigator.bluetooth.requestDevice({filters:[{services:[0x180D]}]});
-    hrDev.addEventListener('gattserverdisconnected',()=>{
+    const c=await bleConnect(0x180D,()=>{
       live.hr=null;refresh();$('btnHr').classList.remove('on');$('btnHr').textContent='Connecter la FC';status('FC déconnectée.');
     });
-    const srv=await hrDev.gatt.connect();
-    const s=await srv.getPrimaryService(0x180D);
-    const c=await s.getCharacteristic(0x2A37);
-    await c.startNotifications();
-    c.addEventListener('characteristicvaluechanged',onHr);
-    $('btnHr').classList.add('on');$('btnHr').textContent='FC : '+(hrDev.name||'connectée');
+    await c.notify(0x2A37,onHr);
+    $('btnHr').classList.add('on');$('btnHr').textContent='FC : '+(c.name||'connectée');
     status('FC connectée.');
   }catch(e){status('Connexion FC impossible : '+e.message)}
 }
