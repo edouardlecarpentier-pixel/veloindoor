@@ -134,6 +134,27 @@ function interp(r,d){
   const a=r[lo],b=r[hi],f=(b.d-a.d)?(d-a.d)/(b.d-a.d):0;
   return {lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,ele:a.ele+(b.ele-a.ele)*f};
 }
+function gradeAt(r,d,w){
+  const a=Math.max(0,d-w), b=Math.min(r[r.length-1].d,d+w);
+  return b>a?(interp(r,b).ele-interp(r,a).ele)/(b-a)*100:0;
+}
+// Cherche, dans les 500 prochains mètres, le premier endroit où la pente change d'au moins 2 points.
+function lookAhead(r,d,gNow,scale,total){
+  for(let x=50;x<=500&&d+x<=total;x+=25){
+    const gx=Math.max(-10,Math.min(15,gradeAt(r,d+x,40)))*scale;
+    if(Math.abs(gx-gNow)>=2) return {dist:x,g:gx};
+  }
+  return null;
+}
+function showSlope(g,nx){
+  $('slopeNow').textContent=g.toFixed(1)+' %';
+  const el=$('slopeNext');
+  if(nx){
+    const up=nx.g>g;
+    el.dataset.dir=up?'up':'down';
+    el.textContent=(up?'⬆ Montée':'⬇ Descente / replat')+' dans '+nx.dist+' m ('+nx.g.toFixed(1)+' %) · '+(up?'prépare un petit braquet':'prépare un grand braquet');
+  }else{ el.dataset.dir=''; el.textContent='Pente stable sur les 500 prochains mètres'; }
+}
 function sendGrade(g){
   const v=Math.round(g*100);                         // pente en 0,01 %
   send([0x11,0,0,v&0xFF,(v>>8)&0xFF,40,51]);         // vent 0, Crr 0,004, Cw 0,51
@@ -156,6 +177,7 @@ async function startSim(){
     let g=d1>d0?(interp(r,d1).ele-interp(r,d0).ele)/(d1-d0)*100:0;
     g=Math.max(-10,Math.min(15,g))*((+$('inDiff').value||100)/100);
     if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(g)}
+    showSlope(g,lookAhead(r,simDist,g,((+$('inDiff').value||100)/100),total));
     const p=interp(r,simDist);
     if(simMarker) simMarker.setLatLng([p.lat,p.lon]);
     $('timer').textContent=fmt((Date.now()-startedAt)/1000);
@@ -213,6 +235,7 @@ async function stopErg(finished){
   $('btnSim').textContent='Rouler le parcours';$('btnSim').classList.remove('on');
   if(simMarker){map.removeLayer(simMarker);simMarker=null}
   $('stepInfo').textContent='';mode=null;
+  $('slopeNow').textContent='';$('slopeNext').textContent='';$('slopeNext').dataset.dir='';
   if(window.VI.onStop) window.VI.onStop();
   status(finished?'Exercice terminé ('+samples.length+' secondes enregistrées).':'Exercice arrêté ('+samples.length+' s enregistrées).');
 }

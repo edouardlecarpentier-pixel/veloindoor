@@ -4,7 +4,21 @@ const $=id=>document.getElementById(id);
 const V=$('vid'), stage=$('vidStage'), setup=$('vidSetup');
 let player=null, fileUrl=null, wake=null, timer=null, ytReady=null;
 
-function msg(t){setup.hidden=false;$('vidMsg').textContent=t}
+function msg(t,link){
+  setup.hidden=false;$('vidMsg').textContent=t;
+  const a=$('vidOpenYt'); a.hidden=!link; if(link) a.href=link;
+}
+const ERR={
+  2:'Lien de vidéo invalide.',
+  5:'Le lecteur du navigateur a rencontré une erreur. Réessaie.',
+  100:'Vidéo introuvable, supprimée ou privée.'
+};
+function ytError(code,p){
+  const link=p.id?'https://www.youtube.com/watch?v='+p.id:'https://www.youtube.com/playlist?list='+p.list;
+  if([101,150,153].includes(code))
+    msg('Le propriétaire de cette vidéo interdit sa lecture dans d\'autres applis (code '+code+'). Ce n\'est pas un défaut de VeloIndoor. Ouvre-la dans YouTube, ou choisis une autre vidéo.',link);
+  else msg(ERR[code]||'Erreur de lecture (code '+code+').',link);
+}
 
 function loadYT(){
   if(ytReady) return ytReady;
@@ -35,6 +49,8 @@ function upd(){
   $('vKm').textContent=$('lKm').textContent;
   const left=$('lLeft').textContent; $('vLeft').textContent=left==='–'?'':'reste '+left+' km';
   $('vTime').textContent=$('timer').textContent;
+  $('vSlope').textContent=$('slopeNow').textContent||'–';
+  const sn=$('slopeNext'); $('vNext').textContent=sn.textContent; $('vNext').dataset.dir=sn.dataset.dir||'';
   $('vInfo').textContent=$('stepInfo').textContent;
 }
 async function enter(){
@@ -56,8 +72,7 @@ async function openYT(u){
   try{await loadYT()}catch(e){msg(e.message);return}
   stage.innerHTML='<div id="ytDiv"></div>';
   const pv={autoplay:1,playsinline:1,rel:0};
-  const cfg={width:'100%',height:'100%',playerVars:pv,events:{
-    onError:e=>msg('Cette vidéo refuse la lecture intégrée (code '+e.data+'). Essaie une autre vidéo ou un fichier.')}};
+  const cfg={width:'100%',height:'100%',playerVars:pv,events:{onError:e=>ytError(e.data,p)}};
   if(p.id) cfg.videoId=p.id;
   if(p.list){pv.listType='playlist';pv.list=p.list}
   player=new YT.Player('ytDiv',cfg);
