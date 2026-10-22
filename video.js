@@ -44,18 +44,22 @@ function parseYT(u){
 
 function upd(){
   const L=window.VI.live, f=(v,d=0)=>v==null?'–':(+v).toFixed(d);
-  $('vW').textContent=f(L.power); $('vHr').textContent=f(L.hr);
-  $('vCad').textContent=f(L.cad); $('vSpd').textContent=f(L.speed,1);
-  $('vKm').textContent=$('lKm').textContent;
-  const left=$('lLeft').textContent; $('vLeft').textContent=left==='–'?'':'reste '+left+' km';
-  $('vTime').textContent=$('timer').textContent;
-  $('vSlope').textContent=$('slopeNow').textContent||'–';
-  const sn=$('slopeNext'); $('vNext').textContent=sn.textContent; $('vNext').dataset.dir=sn.dataset.dir||'';
+  const left=$('lLeft').textContent, sn=$('slopeNext');
+  // 'v' = bande du mode vidéo, 'b' = bande du bas en mode paysage
+  ['v','b'].forEach(p=>{
+    $(p+'W').textContent=f(L.power); $(p+'Hr').textContent=f(L.hr);
+    $(p+'Cad').textContent=f(L.cad); $(p+'Spd').textContent=f(L.speed,1);
+    $(p+'Km').textContent=$('lKm').textContent;
+    $(p+'Left').textContent=left==='–'?'':'reste '+left+' km';
+    $(p+'Time').textContent=$('timer').textContent;
+    $(p+'Slope').textContent=$('slopeNow').textContent||'–';
+    $(p+'Next').textContent=sn.textContent; $(p+'Next').dataset.dir=sn.dataset.dir||'';
+  });
   $('vInfo').textContent=$('stepInfo').textContent;
 }
 async function enter(){
   setup.hidden=true; $('vidMsg').textContent='';
-  upd(); clearInterval(timer); timer=setInterval(upd,500);
+  upd();
   try{await V.requestFullscreen()}catch(e){}
   try{wake=await navigator.wakeLock.request('screen')}catch(e){}
 }
@@ -86,12 +90,13 @@ async function openFile(f){
   stage.appendChild(v);
 }
 function close(){
-  clearInterval(timer);timer=null; clearPlayer();
+  clearPlayer();
   if(wake){try{wake.release()}catch(e){} wake=null}
   if(document.fullscreenElement){try{document.exitFullscreen()}catch(e){}}
   V.classList.remove('on');
 }
 
+upd(); setInterval(upd,500);   // met à jour en permanence les deux bandes (vidéo et paysage)
 $('btnVideo').onclick=()=>{V.classList.add('on');setup.hidden=false;upd()};
 $('vidGo').onclick=()=>openYT($('vidUrl').value);
 $('vidUrl').addEventListener('keydown',e=>{if(e.key==='Enter')openYT(e.target.value)});

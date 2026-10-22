@@ -154,6 +154,30 @@
     <button id="vidSetupBack">Retour</button>
   </div>
 </div>
+<style>
+  #landBar{display:none}
+  @media (orientation:landscape) and (max-height:600px){
+    body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+    .live{display:none}                      /* remplacés par la bande du bas */
+    #landBar{position:fixed;left:0;right:0;bottom:0;z-index:5000;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:2px 18px;padding:6px 12px calc(6px + env(safe-area-inset-bottom));background:rgba(15,23,42,.96);border-top:1px solid #334155;font-size:14px}
+    #landBar b{font-size:22px}
+    #landBar small{opacity:.7;font-size:11px;margin-left:2px}
+    #bNext{width:100%;text-align:center;font-weight:700;font-size:13px}
+    #bNext:empty{display:none}
+    #bNext[data-dir=up]{color:#f87171}
+    #bNext[data-dir=down]{color:#4ade80}
+  }
+</style>
+<div id="landBar">
+  <span><b id="bW">–</b><small>W</small></span>
+  <span><b id="bHr">–</b><small>bpm</small></span>
+  <span><b id="bCad">–</b><small>tr/min</small></span>
+  <span><b id="bSpd">–</b><small>km/h</small></span>
+  <span><b id="bKm">–</b><small>km</small> <small id="bLeft"></small></span>
+  <span><b id="bTime">0:00</b></span>
+  <span><b id="bSlope">–</b><small>pente</small></span>
+  <div id="bNext"></div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
