@@ -104,7 +104,7 @@ function setTarget(w){
 function fmt(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 
 // ---------- Séance par intervalles ----------
-let steps=[], stepIdx=-1, mode=null;
+let steps=[], stepIdx=-1, mode=null, ergDist=0;
 function parsePlan(t){
   return t.split('\n').map(l=>l.replace(/#.*/,'').trim()).filter(Boolean).map(l=>{
     const m=l.match(/^(\d+(?:[.,]\d+)?)\s*(?:min)?\s*[x@ ]\s*(\d+)/i);
@@ -159,6 +159,8 @@ async function startSim(){
     const p=interp(r,simDist);
     if(simMarker) simMarker.setLatLng([p.lat,p.lon]);
     $('timer').textContent=fmt((Date.now()-startedAt)/1000);
+    $('lKm').textContent=(simDist/1000).toFixed(2);
+    $('lLeft').textContent=Math.max(0,(total-simDist)/1000).toFixed(2);
     $('stepInfo').textContent=(simDist/1000).toFixed(2)+' / '+(total/1000).toFixed(1)+' km · pente '+g.toFixed(1)+' % · alt. '+Math.round(p.ele)+' m';
     samples.push({t:Math.round((Date.now()-startedAt)/1000),power:live.power,cad:live.cad,speed:live.speed,hr:live.hr});
     if(simDist>=total) stopErg(true);
@@ -176,7 +178,8 @@ async function startErg(){
     steps=[{sec:m0*60,w:w0}];
   }
   const w=steps[0].w, m=steps.reduce((a,s)=>a+s.sec,0)/60;
-  mode='erg'; stepIdx=-1;
+  mode='erg'; stepIdx=-1; ergDist=0;
+  $('lKm').textContent='0.00'; $('lLeft').textContent='–';
   await send([0x00]);                // re-demande de contrôle si besoin
   await send([0x07]);                // démarrer / reprendre
   setTarget(w);
@@ -188,6 +191,8 @@ async function startErg(){
   tick=setInterval(()=>{
     const left=(endAt-Date.now())/1000;
     $('timer').textContent=fmt(left);
+    ergDist+=(live.speed||0)/3.6;
+    $('lKm').textContent=(ergDist/1000).toFixed(2);
     const el=(Date.now()-startedAt)/1000;
     let acc=0, idx=steps.length-1;
     for(let i=0;i<steps.length;i++){acc+=steps[i].sec; if(el<acc){idx=i;break}}
