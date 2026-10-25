@@ -84,6 +84,7 @@
 <label style="display:flex;gap:10px;align-items:center;padding:6px 16px;font-size:14px"><input type="checkbox" id="autoVento" checked style="width:20px;height:20px"> Envoyer automatiquement la sortie à Vento à la fin</label>
 <div style="padding:4px 16px;font-size:15px"><b id="slopeNow"></b> <span id="slopeNext"></span></div>
 <h2>Séance par intervalles</h2>
+<div style="padding:0 16px;font-size:12px;color:var(--mut)">Le générateur ci-dessous sert seulement à créer une séance : « Générer » remplace la zone de texte. La séance réellement jouée est celle de la zone de texte.</div>
 <div class="erg">
   <input id="gWu" type="number" value="10" title="Échauffement (min)"> échauf. min
   <input id="gR" type="number" value="5" title="Répétitions"> ×
@@ -95,6 +96,7 @@
   <button id="btnGen">Générer</button>
 </div>
 <textarea id="plan" rows="5" placeholder="Une étape par ligne : minutes puis watts (ex. 10 120). Vide = effort constant ci-dessus."></textarea>
+<div id="planInfo" style="padding:4px 16px;font-size:13px;font-weight:600"></div>
 <div class="bar"><button id="btnPasteVento">📥 Importer depuis Vento (presse-papiers)</button></div>
 <h2>Parcours GPX sur le Ride</h2>
 <div class="erg">
@@ -156,6 +158,7 @@
     <span><b id="vKm">–</b><small>km</small> <small id="vLeft"></small></span>
     <span><b id="vTime">0:00</b></span>
     <span><b id="vSlope">–</b><small>pente</small></span>
+    <div class="plw" id="vPlanW" hidden><canvas id="vPlan"></canvas><div class="plt"><div id="vPlanA"></div><div id="vPlanB"></div></div></div>
     <div id="vidInfo"><span id="vNext"></span> <span id="vInfo"></span></div>
   </div>
   <div id="vidSetup">
@@ -169,6 +172,11 @@
   </div>
 </div>
 <style>
+  .plw{display:flex;align-items:center;gap:8px;align-self:center}
+  .plw canvas{width:240px;height:44px;background:rgba(255,255,255,.07);border-radius:4px}
+  .plt{font-size:12px;line-height:1.35;text-align:left;font-weight:600}
+  .plt [data-dir=up]{color:#f87171}
+  .plt [data-dir=down]{color:#4ade80}
   #landBar{display:none}
   @media (orientation:landscape) and (max-height:600px){
     body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
@@ -190,6 +198,7 @@
   <span><b id="bKm">–</b><small>km</small> <small id="bLeft"></small></span>
   <span><b id="bTime">0:00</b></span>
   <span><b id="bSlope">–</b><small>pente</small></span>
+  <div class="plw" id="bPlanW" hidden><canvas id="bPlan"></canvas><div class="plt"><div id="bPlanA"></div><div id="bPlanB"></div></div></div>
   <div id="bNext"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -355,9 +364,10 @@ function clearAll(w){
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
-<script src="ble.js?v=13"></script>
+<script src="ble.js?v=14"></script>
 <script src="export.js"></script>
 <script src="import.js"></script>
+<script src="plan.js"></script>
 <script src="send.js"></script>
 <script src="video.js"></script>
 </body>

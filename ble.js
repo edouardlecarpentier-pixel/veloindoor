@@ -353,6 +353,7 @@ async function startErg(){
     steps=[{sec:m0*60,w:w0}];
   }
   const w=steps[0].w, m=steps.reduce((a,s)=>a+s.sec,0)/60;
+  window.VI.steps=steps;             // lu par plan.js (graphe de la séance)
   mode='erg'; stepIdx=-1; ergDist=0; window.VI.simRoute=false;
   $('lKm').textContent='0.00'; $('lLeft').textContent='–';
   await send([0x00]);                // re-demande de contrôle si besoin
@@ -388,7 +389,7 @@ async function stopErg(finished){
   $('btnSim').textContent='Rouler le parcours';$('btnSim').classList.remove('on');
   $('btnFree').textContent='Pédale libre';$('btnFree').classList.remove('on');freeRide=false;
   if(simMarker){map.removeLayer(simMarker);simMarker=null}
-  $('stepInfo').textContent='';mode=null;
+  $('stepInfo').textContent='';mode=null;window.VI.steps=null;
   $('slopeNow').textContent='';$('slopeNext').textContent='';$('slopeNext').dataset.dir='';
   if(window.VI.onStop) window.VI.onStop();
   status(finished?'Exercice terminé ('+samples.length+' secondes enregistrées).':'Exercice arrêté ('+samples.length+' s enregistrées).');

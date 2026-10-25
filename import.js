@@ -16,6 +16,14 @@ function planStats(text){
   }).filter(x=>x>0);
   return {n:st.length,min:Math.round(st.reduce((a,b)=>a+b,0))};
 }
+// Résumé sous la zone de séance (suit la saisie, l'import et « Générer »)
+function showPlanInfo(){
+  const el=$('planInfo'), pl=$('plan'); if(!el||!pl) return;
+  const s=planStats(pl.value);
+  el.textContent=s.n?'Séance active : '+s.n+' étapes, '+s.min+' min':'';
+}
+if($('plan')){ $('plan').addEventListener('input',showPlanInfo); showPlanInfo(); }
+if($('btnGen')) $('btnGen').addEventListener('click',showPlanInfo);
 async function apply(p){
   if(!p||p.v!==1) throw new Error('Données Vento non reconnues');
   const done=[];
