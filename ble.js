@@ -53,21 +53,24 @@ function loadNative(){
   });
   return nativeReady;
 }
-async function bleConnect(svc,onDisc){
+const cu=x=>typeof x==='string'?x:uuid(x);
+// svc : service recherché ; dataSvc : service portant les caractéristiques (par défaut svc) ; namePrefix : filtre de nom en plus
+async function bleConnect(svc,onDisc,dataSvc=svc,namePrefix){
   if(NATIVE){
     await loadNative();
     const B=window.BleClient;
-    const dev=await B.requestDevice({services:[uuid(svc)]});
+    const dev=await B.requestDevice(namePrefix?{services:[cu(svc)],namePrefix,optionalServices:[cu(dataSvc)]}:{services:[cu(svc)]});
     await B.connect(dev.deviceId,()=>onDisc());
-    return {name:dev.name,
-      notify:(c,cb)=>B.startNotifications(dev.deviceId,uuid(svc),uuid(c),cb),
-      write:(c,bytes)=>B.write(dev.deviceId,uuid(svc),uuid(c),new DataView(new Uint8Array(bytes).buffer))};
+    return {name:dev.name,id:dev.deviceId,disconnect:()=>B.disconnect(dev.deviceId),
+      notify:(c,cb)=>B.startNotifications(dev.deviceId,cu(dataSvc),cu(c),cb),
+      write:(c,bytes,s2)=>B.write(dev.deviceId,cu(s2||dataSvc),cu(c),new DataView(new Uint8Array(bytes).buffer))};
   }
   if(!navigator.bluetooth) throw new Error('Web Bluetooth indisponible : utilise Chrome sur Android, en https.');
-  const dev=await navigator.bluetooth.requestDevice({filters:[{services:[svc]}]});
+  const filters=[{services:[svc]}]; if(namePrefix) filters.push({namePrefix});
+  const dev=await navigator.bluetooth.requestDevice({filters,optionalServices:[dataSvc]});
   dev.addEventListener('gattserverdisconnected',onDisc);
-  const srv=await dev.gatt.connect(), s=await srv.getPrimaryService(svc);
-  return {name:dev.name,
+  const srv=await dev.gatt.connect(), s=await srv.getPrimaryService(dataSvc);
+  return {name:dev.name,id:dev.id,disconnect:async()=>dev.gatt.disconnect(),
     async notify(c,cb){const ch=await s.getCharacteristic(c);await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',e=>cb(e.target.value))},
     async write(c,bytes){const ch=await s.getCharacteristic(c);await ch.writeValueWithResponse(new Uint8Array(bytes))}};
 }
@@ -113,6 +116,133 @@ async function connectHr(){
   }catch(e){status('Connexion FC impossible : '+e.message)}
 }
 
+// ---------- Manettes Zwift Ride (changement de vitesse virtuelle) ----------
+// Protocole Zwift (non documenté officiellement) : service 0xFC82 annoncé, service de données
+// 00000001-19CA-4651-86E5-FA29DCDD09D1, notifications 02, écriture 03, indications 04, poignée de main « RideOn ».
+const ZSVC='00000001-19ca-4651-86e5-fa29dcdd09d1', ZNOT='00000002-19ca-4651-86e5-fa29dcdd09d1',
+      ZWR='00000003-19ca-4651-86e5-fa29dcdd09d1', ZIND='00000004-19ca-4651-86e5-fa29dcdd09d1';
+const GEARS=24, GEAR0=12, GEAR_STEP=1;       // 24 vitesses ; chaque cran = ±1 % de pente
+let gear=GEAR0, padLog=[], padN=0;
+const gearOffset=()=>(gear-GEAR0)*GEAR_STEP;
+function showGear(){$('lGear').textContent=gear+'/'+GEARS}
+function shiftGear(d){
+  gear=Math.max(1,Math.min(GEARS,gear+d)); showGear();
+  if(mode==='sim') lastGradeAt=0;            // renvoie la pente tout de suite
+}
+function hex(dv){return Array.from(new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength),b=>b.toString(16).padStart(2,'0')).join(' ')}
+function logPad(t){padLog.unshift(t); if(padLog.length>8) padLog.pop(); $('padDbg').textContent=padLog.join('\n')}
+// un état par manette (gauche et droite sont deux appareils distincts) ; le 1er message sert de référence.
+// Rôle fixé par l'ordre de connexion : 1re manette = gauche = vitesse inférieure, 2e = droite = vitesse supérieure.
+// Gauche / droite : les deux manettes sont deux appareils « Zwift Ride » identiques, et certains boutons sont signalés
+// par les DEUX appareils à la fois. On apprend donc, manette par manette (une seule connectée), quel bouton fait quoi :
+// règle = {appareil, code du bouton, sens}. Sans règle pour un appareil, repli sur l'ordre de connexion
+// (1re = gauche = −, 2e = droite = +) avec les appuis « doublons » ignorés.
+let padRules=[];                                  // [{id, bit, dir}]
+try{const r=JSON.parse(localStorage.getItem('vi_padrules2')||'[]'); if(Array.isArray(r)) padRules=r}catch(e){}
+const pads={};                                    // id appareil → {order, conn}
+const padOrder=[-1,1];
+const sideTag=d=>d<0?'G':'D';
+const padPend={}; let calib=null;
+function padPress(id,fresh){                      // repli sans règle
+  const other=Object.keys(pads).find(k=>k!==id), po=other&&padPend[other];
+  if(po&&po.mask&fresh){
+    const common=po.mask&fresh; po.mask&=~common; fresh&=~common;
+    logPad('doublon 0x'+common.toString(16)+' ignoré (signalé par G et D)');
+  }
+  if(!fresh) return;
+  const p=padPend[id]||(padPend[id]={mask:0,timer:null});
+  p.mask|=fresh; clearTimeout(p.timer);
+  p.timer=setTimeout(()=>{
+    if(p.mask&&pads[id]){ const d=pads[id].order; shiftGear(d); logPad(sideTag(d)+(d<0?'(−)':'(+)')+' appui 0x'+p.mask.toString(16)+' → vitesse '+gear+'/'+GEARS); }
+    p.mask=0;
+  },200);
+}
+function makePadHandler(id){
+  let prev=null;
+  return dv=>{
+    if(dv.byteLength>=3&&dv.getUint8(0)===0x23&&dv.getUint8(1)===0x08){
+      let map=0,sh=0,o=2,b;                  // varint protobuf (champ 1) : bit à 0 = bouton appuyé
+      do{b=dv.getUint8(o++);map+=(b&0x7F)*Math.pow(2,sh);sh+=7}while(b&0x80&&o<dv.byteLength);
+      const pressed=(~map>>>0)&0x1FFFF, fresh=prev===null?0:pressed&~prev, changed=pressed!==prev; prev=pressed;
+      const mine=padRules.filter(r=>r.id===id);
+      if(fresh&&calib&&calib.id===id){ for(let k=0;k<17;k++) if(fresh&(1<<k)) calib.bits[1<<k]=(calib.bits[1<<k]||0)+1; logPad('étalonnage : bouton 0x'+fresh.toString(16)); }
+      else if(fresh&&mine.length){
+        const hit=mine.find(r=>fresh&r.bit);
+        if(hit){ shiftGear(hit.dir); logPad(sideTag(hit.dir)+(hit.dir<0?'(−)':'(+)')+' bouton 0x'+hit.bit.toString(16)+' → vitesse '+gear+'/'+GEARS); }
+        else logPad('bouton 0x'+fresh.toString(16)+' sans effet (non étalonné)');
+      }
+      else if(fresh) padPress(id,fresh);
+      else if(changed) logPad('relâché / état 0x'+pressed.toString(16));
+    }
+  };
+}
+// Étalonnage en deux passes : à chaque passe une seule manette est connectée et l'on appuie 2 fois sur son bouton.
+let calStep=0;
+const CAL_ROLES=[{dir:-1,nom:'GAUCHE',btn:'BAS GAUCHE (descendre)'},{dir:1,nom:'DROITE',btn:'BAS DROIT (monter)'}];
+async function calibratePad(){
+  const r=CAL_ROLES[calStep];
+  for(const id of Object.keys(pads)){ try{pads[id].conn.disconnect()}catch(e){} delete pads[id] }
+  $('btnPad').classList.remove('on');$('btnPad').textContent='Connecter les manettes';
+  $('btnCal').textContent='Choisis la manette '+r.nom+' dans la liste…';
+  status('Étalonnage '+(calStep+1)+'/2 : connecte UNIQUEMENT la manette '+r.nom+'.');
+  const id=await connectPad();
+  if(!id){$('btnCal').textContent='Étalonner les vitesses';calStep=0;return}
+  $('btnCal').textContent='Appuie 2 fois sur le bouton '+r.btn;
+  status('Étalonnage '+(calStep+1)+'/2 : appuie 2 fois sur le bouton '+r.btn+' de la manette '+r.nom+' (6 s).');
+  calib={id,bits:{}};
+  await new Promise(res=>setTimeout(res,6000));
+  const bits=calib.bits; calib=null;
+  const best=Object.keys(bits).sort((x,y)=>bits[y]-bits[x])[0];
+  if(!best){$('btnCal').textContent='Aucun appui détecté — recommence l\'étalonnage';calStep=0;return}
+  padRules=padRules.filter(x=>x.id!==id&&x.dir!==r.dir).concat({id,bit:+best,dir:r.dir});
+  try{localStorage.setItem('vi_padrules2',JSON.stringify(padRules))}catch(e){}
+  logPad('manette '+r.nom+' enregistrée : bouton 0x'+(+best).toString(16)+' ('+bits[best]+' appui(s))');
+  calStep++;
+  if(calStep>=2){
+    calStep=0; $('btnCal').textContent='Étalonnage terminé ✓';
+    status('Étalonnage terminé. Reconnecte maintenant les deux manettes (« Connecter les manettes » deux fois).');
+  }else{
+    $('btnCal').textContent='Gauche enregistrée ✓ — appuie ici pour la DROITE';
+    status('Manette gauche enregistrée. Appuie sur « Étalonner » pour enregistrer la manette droite.');
+  }
+}
+async function connectPad(){
+  if(Object.keys(pads).length>=2){status('Les deux manettes sont déjà connectées.');return}
+  let id=null, added=false, done=false;
+  try{
+    $('btnPad').textContent='Recherche…';
+    const want=Object.keys(pads).length?'l\'AUTRE manette':'une manette';
+    status('Recherche de '+want+'… (appuie sur une de ses palettes pour la réveiller)');
+    let cur=null;
+    const c=await bleConnect(0xFC82,()=>{
+      if(!(id&&pads[id]&&pads[id].conn===cur)) return;   // coupure d'une ancienne connexion : on l'ignore
+      delete pads[id];delete padPend[id];
+      const n=Object.keys(pads).length;
+      $('btnPad').classList.toggle('on',n>0);$('btnPad').textContent=n>0?'Manettes : '+n+'/2':'Connecter les manettes';status('Une manette déconnectée.');
+    },ZSVC,'Zwift');
+    id=c.id; cur=c;
+    if(pads[id]) throw new Error('Cette manette est déjà connectée : choisis l\'autre dans la liste.');
+    pads[id]={order:padOrder.find(d=>!Object.values(pads).some(p=>p.order===d))||1,conn:c}; added=true;
+    const h=makePadHandler(id);
+    await c.notify(ZNOT,h);
+    await c.notify(ZIND,h);
+    await c.write(ZWR,[0x52,0x69,0x64,0x65,0x4F,0x6E,0x01,0x02]);   // « RideOn » + 01 02 (Ride)
+    done=true;
+    const n=Object.keys(pads).length;
+    showGear();
+    $('btnPad').classList.add('on');
+    $('btnPad').textContent=n<2?'Manette 1/2 OK · connecter l\'autre':'Manettes : 2/2';
+    status('Manette connectée ('+(c.name||'?')+').'+(n<2?' Appuie à nouveau sur le bouton pour l\'autre.':''));
+    return id;
+  }catch(e){
+    if(added&&!done) delete pads[id];
+    const m=(e&&e.message)||String(e);
+    $('btnPad').textContent='Manettes : '+m.slice(0,60);
+    status('Connexion manettes impossible : '+m);
+    return null;
+  }
+}
+
 // ---------- Exercice ERG ----------
 let target=200, endAt=0, tick=null, startedAt=0, wake=null;
 function setTarget(w){
@@ -145,7 +275,9 @@ $('btnGen').onclick=()=>{
 
 // ---------- Parcours GPX (simulation de pente) ----------
 let simDist=0, lastGradeAt=0, simMarker=null;
-function getRoute(){return (typeof pts!=='undefined'&&pts.length>1)?pts:null}
+const FLAT=[{lat:0,lon:0,d:0,ele:0},{lat:0,lon:0,d:200000,ele:0}];   // route plate de 200 km pour le mode « pédale libre »
+let freeRide=false;
+function getRoute(){return freeRide?FLAT:(typeof pts!=='undefined'&&pts.length>1)?pts:null}
 function interp(r,d){
   d=Math.max(0,Math.min(d,r[r.length-1].d));
   let lo=0,hi=r.length-1;
@@ -178,7 +310,8 @@ function sendGrade(g){
   const v=Math.round(g*100);                         // pente en 0,01 %
   send([0x11,0,0,v&0xFF,(v>>8)&0xFF,40,51]);         // vent 0, Crr 0,004, Cw 0,51
 }
-async function startSim(){
+async function startSim(free){
+  freeRide=!!free;
   if(!T.cp){status('Connecte d\'abord le Ride.');return}
   if(tick) return;
   if(!getRoute()){status('Charge ou trace d\'abord un parcours.');return}
@@ -186,8 +319,8 @@ async function startSim(){
   await send([0x00]); await send([0x07]);
   samples.length=0; startedAt=Date.now(); window.VI.startTime=startedAt;
   try{wake=await navigator.wakeLock.request('screen')}catch(e){}
-  $('btnSim').textContent='Arrêter le parcours'; $('btnSim').classList.add('on');
-  if(typeof L!=='undefined'&&typeof map!=='undefined')
+  (free?$('btnFree'):$('btnSim')).textContent='Arrêter'; (free?$('btnFree'):$('btnSim')).classList.add('on');
+  if(!free&&typeof L!=='undefined'&&typeof map!=='undefined')
     simMarker=L.circleMarker([getRoute()[0].lat,getRoute()[0].lon],{radius:8,color:'#fff',fillColor:'#22c55e',fillOpacity:1}).addTo(map);
   tick=setInterval(()=>{
     const r=getRoute(), total=r[r.length-1].d;
@@ -195,14 +328,15 @@ async function startSim(){
     const d0=Math.max(0,simDist-60), d1=Math.min(total,simDist+60);
     let g=d1>d0?(interp(r,d1).ele-interp(r,d0).ele)/(d1-d0)*100:0;
     g=Math.max(-10,Math.min(15,g))*((+$('inDiff').value||100)/100);
-    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(g)}
+    const gSent=Math.max(-10,Math.min(20,g+gearOffset()));
+    if(Date.now()-lastGradeAt>=2000){lastGradeAt=Date.now();sendGrade(gSent)}
     showSlope(g,lookAhead(r,simDist,g,((+$('inDiff').value||100)/100),total));
     const p=interp(r,simDist);
     if(simMarker) simMarker.setLatLng([p.lat,p.lon]);
     $('timer').textContent=fmt((Date.now()-startedAt)/1000);
     $('lKm').textContent=(simDist/1000).toFixed(2);
     $('lLeft').textContent=Math.max(0,(total-simDist)/1000).toFixed(2);
-    $('stepInfo').textContent=(simDist/1000).toFixed(2)+' / '+(total/1000).toFixed(1)+' km · pente '+g.toFixed(1)+' % · alt. '+Math.round(p.ele)+' m';
+    $('stepInfo').textContent=(simDist/1000).toFixed(2)+' / '+(total/1000).toFixed(1)+' km · vitesse '+gear+'/'+GEARS+' · pente envoyée au Ride '+gSent.toFixed(1)+' %';
     samples.push({t:Math.round((Date.now()-startedAt)/1000),power:live.power,cad:live.cad,speed:live.speed,hr:live.hr});
     if(simDist>=total) stopErg(true);
   },1000);
@@ -252,6 +386,7 @@ async function stopErg(finished){
   if(wake){try{wake.release()}catch(e){} wake=null}
   $('btnErg').textContent='Démarrer';$('btnErg').classList.remove('on');
   $('btnSim').textContent='Rouler le parcours';$('btnSim').classList.remove('on');
+  $('btnFree').textContent='Pédale libre';$('btnFree').classList.remove('on');freeRide=false;
   if(simMarker){map.removeLayer(simMarker);simMarker=null}
   $('stepInfo').textContent='';mode=null;
   $('slopeNow').textContent='';$('slopeNext').textContent='';$('slopeNext').dataset.dir='';
@@ -261,8 +396,12 @@ async function stopErg(finished){
 
 $('btnRide').onclick=connectTrainer;
 $('btnHr').onclick=connectHr;
+$('btnPad').onclick=connectPad;
+$('btnCal').onclick=calibratePad;showGear();
+$('lGear').parentNode.onclick=()=>{gear=GEAR0;showGear();logPad('vitesse remise à '+GEAR0)};
 $('btnErg').onclick=()=>tick?stopErg(false):startErg();
 $('btnSim').onclick=()=>tick?stopErg(false):startSim();
+$('btnFree').onclick=()=>tick?stopErg(false):startSim(true);
 $('wPlus').onclick=()=>setTarget(target+10);
 $('wMinus').onclick=()=>setTarget(target-10);
 $('inW').addEventListener('input',e=>{ if(!tick){target=+e.target.value||0;$('tgt').textContent=target} });
