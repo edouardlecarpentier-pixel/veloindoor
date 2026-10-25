@@ -391,6 +391,7 @@ async function stopErg(finished){
   if(simMarker){map.removeLayer(simMarker);simMarker=null}
   $('stepInfo').textContent='';mode=null;window.VI.steps=null;
   $('slopeNow').textContent='';$('slopeNext').textContent='';$('slopeNext').dataset.dir='';
+  if(window.VI.refreshPlan) window.VI.refreshPlan();
   if(window.VI.onStop) window.VI.onStop();
   status(finished?'Exercice terminé ('+samples.length+' secondes enregistrées).':'Exercice arrêté ('+samples.length+' s enregistrées).');
 }
