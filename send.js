@@ -22,6 +22,7 @@ async function pack(r){
   let s=r.samples; if(s.length>10800) s=s.filter((_,i)=>i%2===0);   // très longue sortie : 1 point sur 2
   const d=new Date(r.start), name='VeloIndoor '+d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   const payload={v:1,kind:'ride',name,start:r.start,gain:climb(r.route),samples:s};
+  if(r.route&&r.route.length>1) payload.route=r.route.map(p=>[Math.round((p[2]||0)*10)/10,Math.round(p[3]||0)]);   // [altitude, distance] : Vento en déduit l'altitude à chaque seconde
   return b64url(await gzip(JSON.stringify(payload)));
 }
 function open(url){

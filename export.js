@@ -141,7 +141,7 @@ function saveRide(){
   if(!V||!V.samples.length||!V.startTime) return;
   const ride={start:V.startTime,samples:V.samples.map(x=>[x.t,x.power,x.cad,x.speed,x.hr])};
   try{
-    if(typeof pts!=='undefined'&&pts.length>1){
+    if(V.simRoute&&typeof pts!=='undefined'&&pts.length>1){
       const step=Math.max(1,Math.floor(pts.length/300));
       ride.route=pts.filter((_,i)=>i%step===0||i===pts.length-1).map(p=>[p.lat,p.lon,p.ele,p.d]);
     }

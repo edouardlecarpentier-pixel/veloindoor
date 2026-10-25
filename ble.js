@@ -315,7 +315,7 @@ async function startSim(free){
   if(!T.cp){status('Connecte d\'abord le Ride.');return}
   if(tick) return;
   if(!getRoute()){status('Charge ou trace d\'abord un parcours.');return}
-  mode='sim'; simDist=0; lastGradeAt=0; steps=[];
+  mode='sim'; simDist=0; lastGradeAt=0; steps=[]; window.VI.simRoute=!free;   // le parcours n'est joint à la sortie que si on l'a vraiment roulé
   await send([0x00]); await send([0x07]);
   samples.length=0; startedAt=Date.now(); window.VI.startTime=startedAt;
   try{wake=await navigator.wakeLock.request('screen')}catch(e){}
@@ -353,7 +353,7 @@ async function startErg(){
     steps=[{sec:m0*60,w:w0}];
   }
   const w=steps[0].w, m=steps.reduce((a,s)=>a+s.sec,0)/60;
-  mode='erg'; stepIdx=-1; ergDist=0;
+  mode='erg'; stepIdx=-1; ergDist=0; window.VI.simRoute=false;
   $('lKm').textContent='0.00'; $('lLeft').textContent='–';
   await send([0x00]);                // re-demande de contrôle si besoin
   await send([0x07]);                // démarrer / reprendre
