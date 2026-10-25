@@ -19,6 +19,20 @@ if (!manifest.includes('BLUETOOTH_CONNECT')) {
   writeFileSync(manifestPath, manifest);
 }
 
+// Lien veloindoor://… (envoi d'une séance ou d'un parcours depuis Vento)
+if (!manifest.includes('android:scheme="veloindoor"')) {
+  const filter = `
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="veloindoor" />
+        </intent-filter>
+    `;
+  manifest = manifest.replace('</activity>', filter + '</activity>');
+  writeFileSync(manifestPath, manifest);
+}
+
 function findFile(dir, name) {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);

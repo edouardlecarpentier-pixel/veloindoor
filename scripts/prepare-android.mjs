@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 
 rmSync('www', { recursive: true, force: true });
 mkdirSync('www', { recursive: true });
-for (const f of ['index.html', 'ble.js', 'export.js', 'video.js', 'manifest.json']) {
+for (const f of ['index.html', 'ble.js', 'export.js', 'import.js', 'video.js', 'manifest.json']) {
   cpSync(f, 'www/' + f);
 }
 await build({
