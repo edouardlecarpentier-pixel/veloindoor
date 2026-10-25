@@ -156,9 +156,10 @@ function render(){
     const row=document.createElement('div'); row.className='hline';
     row.innerHTML='<div><b>'+d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</b><br><span>'+
       Math.round(sm.dur/60)+' min · '+(sm.dist/1000).toFixed(1)+' km · '+(sm.avgP??'–')+' W moy. · '+(sm.avgH??'–')+' bpm moy.</span></div>'+
-      '<div class="acts"><button data-k="fit">FIT</button><button data-k="tcx">TCX</button><button data-k="gpx">GPX</button><button data-k="del">✕</button></div>';
+      '<div class="acts"><button data-k="vento" title="Envoyer à Vento (analyse)">Vento</button><button data-k="fit">FIT</button><button data-k="tcx">TCX</button><button data-k="gpx">GPX</button><button data-k="del">✕</button></div>';
     row.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-      if(b.dataset.k==='del'){ if(confirm('Supprimer cette sortie ?')){const l=load();l.splice(i,1);store(l);if(!l.length)localStorage.removeItem(KEY);render()} }
+      if(b.dataset.k==='vento'){ if(window.VI.sendRide) window.VI.sendRide(r); }
+      else if(b.dataset.k==='del'){ if(confirm('Supprimer cette sortie ?')){const l=load();l.splice(i,1);store(l);if(!l.length)localStorage.removeItem(KEY);render()} }
       else exportRide(r,b.dataset.k);
     });
     box.appendChild(row);

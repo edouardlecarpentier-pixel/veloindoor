@@ -2,7 +2,9 @@
 // et transmet à la page les liens veloindoor://import?d=… envoyés par Vento.
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 window.BleClient = BleClient;
+window.CapBrowser = Browser;            // ouvre Vento (envoi automatique de la sortie) dans le navigateur Android
 
 const give = url => { if (window.VI && window.VI.importUrl) window.VI.importUrl(url); };
 App.addListener('appUrlOpen', e => give(e.url));                                     // appli déjà ouverte
