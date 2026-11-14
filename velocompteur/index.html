@@ -117,7 +117,7 @@ body.eco .tile b{transition:none}
 <div id="app">
   <div class="sbar" id="sbar">
     <span id="clock">--:--</span>
-    <div class="tabs" id="tabs"><button data-p="0">🗺+📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">♪</button><button data-p="4">⚙</button></div>
+    <div class="tabs" id="tabs"><button data-p="0">🗺+📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">⚙</button></div>
     <div class="chips">
       <span class="chip" id="cGPS">GPS</span>
       <span class="chip" id="cPW">Pédales</span>
@@ -183,37 +183,9 @@ body.eco .tile b{transition:none}
       </div>
     </div>
     <!-- 3 · son -->
-    <div class="page" data-name="Son">
-      <div class="setup three">
-        <div class="card">
-          <h3>Musique (fichiers du téléphone)</h3>
-          <div class="np" id="np">Aucune musique chargée</div>
-          <div class="ctl"><button id="mPrev">⏮</button><button id="mPlay">▶</button><button id="mNext">⏭</button><button id="mShuf">🔀</button></div>
-          <div class="cfg">🔈 <input type="range" id="mVol" min="0" max="1" step="0.05" value="0.8"> 🔊</div>
-          <div class="cfg"><button class="btn p" id="mAdd">Choisir des musiques…</button><input type="file" id="mFiles" accept="audio/*" multiple hidden></div>
-          <ol id="mList"></ol>
-        </div>
-        <div class="card">
-          <h3>Guidage vocal</h3>
-          <div class="cfg"><label><input type="checkbox" id="voiceOn" checked> Annonces vocales des virages</label></div>
-          <div class="cfg">🔈 <input type="range" id="voiceVol" min="0" max="1" step="0.05" value="1"> 🔊</div>
-          <div class="cfg"><button class="btn" id="voiceTest">Tester la voix</button></div>
-          <h3 style="margin-top:12px">Alertes radar</h3>
-          <div class="cfg"><label><input type="checkbox" id="sound" checked> Bip à l'arrivée d'un véhicule</label></div>
-          <div class="cfg">🔈 <input type="range" id="beepVol" min="0" max="1" step="0.05" value="0.6"> 🔊</div>
-          <div class="cfg"><button class="btn" id="beepTest">Tester le bip</button></div>
-          <div class="cfg"><label><input type="checkbox" id="duck" checked> Baisser la musique pendant les annonces</label></div>
-        </div>
-        <div class="card">
-          <h3>Autres applis de musique</h3>
-          <div class="cfg"><button class="btn" data-app="com.spotify.music">Spotify</button><button class="btn" data-app="deezer.android.app">Deezer</button><button class="btn" data-app="com.google.android.apps.youtube.music">YouTube Music</button></div>
-          <div class="note">Une page web ne peut pas piloter Spotify ou Deezer. Lancez la musique dans l'appli, puis revenez ici : réglez le volume avec les boutons du téléphone ou des écouteurs. Pendant que l'autre appli est au premier plan, le GPS de VéloCompteur peut se mettre en pause : revenez vite, ou utilisez l'écran partagé d'Android.<br><br>Le lecteur de cette page, lui, se commande aussi depuis les boutons des écouteurs et l'écran verrouillé.</div>
-        </div>
-      </div>
-    </div>
-    <!-- 4 · capteurs et réglages -->
+    <!-- 3 · capteurs et réglages -->
     <div class="page" data-name="Capteurs et réglages">
-      <div class="setup">
+      <div class="setup three">
         <div class="card">
           <h3>Capteurs Bluetooth</h3>
           <div class="srow"><div class="n">Pédales Garmin Rally<small id="sPW">non connecté · puissance + cadence</small></div><span class="bat" id="bPW"></span><button class="btn p" data-connect="pw">Connecter</button></div>
@@ -235,6 +207,16 @@ body.eco .tile b{transition:none}
           <div class="cfg"><button class="btn" id="fs">Plein écran paysage</button> <button class="btn" id="demo">Mode démo</button></div>
           <div class="note">Écrans : boutons en haut, balayage sur les données, ou télécommande (Entrée, Espace, flèches). Le mode démo simule GPS, capteurs et radar ; avec un parcours chargé, il le suit pour tester le guidage.</div>
         </div>
+        <div class="card">
+          <h3>Guidage vocal</h3>
+          <div class="cfg"><label><input type="checkbox" id="voiceOn" checked> Annonces vocales des virages</label></div>
+          <div class="cfg">🔈 <input type="range" id="voiceVol" min="0" max="1" step="0.05" value="1"> 🔊</div>
+          <div class="cfg"><button class="btn" id="voiceTest">Tester la voix</button></div>
+          <h3 style="margin-top:12px">Alertes radar</h3>
+          <div class="cfg"><label><input type="checkbox" id="sound" checked> Bip à l'arrivée d'un véhicule</label></div>
+          <div class="cfg">🔈 <input type="range" id="beepVol" min="0" max="1" step="0.05" value="0.6"> 🔊</div>
+          <div class="cfg"><button class="btn" id="beepTest">Tester le bip</button></div>
+        </div>
       </div>
     </div>
     <div class="radar"><div class="rtrack" id="rtrack"><div class="rme"></div><div class="rnone" id="rnone">—</div></div></div>
@@ -242,7 +224,6 @@ body.eco .tile b{transition:none}
   </div>
 </div>
 <div id="toast"></div>
-<audio id="player" preload="auto"></audio>
 
 <script>
 /* ================= appli Android native (Capacitor) ou navigateur ================= */
@@ -595,51 +576,10 @@ function say(text){
     speechSynthesis.speak(u);
   } catch {}
 }
-const player = $('#player'); let playlist = [], cur = -1, shuffle = false, duckT = null, ducked = false;
-function duck(ms){
-  if (!$('#duck').checked || player.paused) return;
-  ducked = true; player.volume = Math.max(0, +$('#mVol').value*0.25);
-  clearTimeout(duckT); if (ms) duckT = setTimeout(unduck, ms);
-}
-function unduck(){ if (!ducked) return; ducked = false; player.volume = +$('#mVol').value; }
-$('#mVol').oninput = e => { if (!ducked) player.volume = +e.target.value; store.set('mVol', +e.target.value); };
+function duck(){} function unduck(){}   // plus de lecteur intégré : Android baisse lui-même Spotify/Deezer pendant les annonces
 ['voiceVol','beepVol'].forEach(id => { $('#' + id).value = store.get(id, $('#' + id).value); $('#' + id).oninput = e => store.set(id, +e.target.value); });
-$('#mVol').value = store.get('mVol', .8); player.volume = +$('#mVol').value;
 $('#voiceTest').onclick = () => say('Dans 300 mètres, tournez à gauche');
 $('#beepTest').onclick = () => { audioCtx(); beep(880, 140, 2); };
-$('#mAdd').onclick = () => $('#mFiles').click();
-$('#mFiles').onchange = e => {
-  const files = [...e.target.files]; if (!files.length) return;
-  playlist = playlist.concat(files.map(f => ({name:f.name.replace(/\.[^.]+$/, ''), url:URL.createObjectURL(f)})));
-  renderList(); if (cur < 0) playIdx(0); e.target.value = '';
-};
-function renderList(){
-  $('#mList').innerHTML = playlist.map((t, i) => `<li class="${i === cur ? 'cur' : ''}" data-i="${i}">${t.name.replace(/</g, '&lt;')}</li>`).join('');
-  $('#mList').querySelectorAll('li').forEach(li => li.onclick = () => playIdx(+li.dataset.i));
-}
-function playIdx(i){
-  if (!playlist.length) return;
-  cur = (i + playlist.length) % playlist.length; player.src = playlist[cur].url; player.play().catch(() => {});
-  $('#np').textContent = '♪ ' + playlist[cur].name; renderList();
-  if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({title:playlist[cur].name, artist:'VéloCompteur'});
-}
-const nextTrack = () => playIdx(shuffle ? Math.floor(Math.random()*playlist.length) : cur + 1);
-$('#mPlay').onclick = () => { if (cur < 0){ if (playlist.length) playIdx(0); else $('#mFiles').click(); return; } player.paused ? player.play() : player.pause(); };
-$('#mNext').onclick = nextTrack; $('#mPrev').onclick = () => playIdx(cur - 1);
-$('#mShuf').onclick = () => { shuffle = !shuffle; $('#mShuf').classList.toggle('on', shuffle); };
-player.onended = nextTrack;
-player.onplay = () => $('#mPlay').textContent = '⏸'; player.onpause = () => $('#mPlay').textContent = '▶';
-if ('mediaSession' in navigator){
-  navigator.mediaSession.setActionHandler('play', () => player.play());
-  navigator.mediaSession.setActionHandler('pause', () => player.pause());
-  navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
-  navigator.mediaSession.setActionHandler('previoustrack', () => playIdx(cur - 1));
-}
-document.querySelectorAll('[data-app]').forEach(b => b.onclick = () => {
-  const pkg = b.dataset.app;
-  if (NATIVE){ Native.AppLauncher.openUrl({url:pkg}).catch(() => toast('Appli non installée')); return; }
-  location.href = `intent://#Intent;package=${pkg};S.browser_fallback_url=${encodeURIComponent('https://play.google.com/store/apps/details?id=' + pkg)};end`;
-});
 
 /* ================= Bluetooth ================= */
 const RADAR_SVC = '6a4e3200-667b-11e3-949a-0800200c9a66', RADAR_CHR = '6a4e3203-667b-11e3-949a-0800200c9a66';
@@ -874,7 +814,7 @@ function applyEco(){
 }
 $('#eco').onchange = e => { opt.eco = e.target.checked; store.set('eco', opt.eco); applyEco(); };
 $('#hrmax').value = store.get('hrmax', 185); $('#hrmax').onchange = e => store.set('hrmax', +e.target.value);
-['voiceOn','sound','duck','autopause'].forEach(id => { const el = $('#' + id); el.checked = store.get(id, el.checked); el.onchange = () => store.set(id, el.checked); });
+['voiceOn','sound','autopause'].forEach(id => { const el = $('#' + id); el.checked = store.get(id, el.checked); el.onchange = () => store.set(id, el.checked); });
 $('#fs').onclick = async () => { try { await document.documentElement.requestFullscreen(); } catch {} try { await screen.orientation.lock('landscape'); } catch {} setTimeout(() => map && map.resize(), 300); };
 if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => $('#pbat').textContent = '🔋 ' + Math.round(b.level*100) + ' %'; u(); b.onlevelchange = u; });
 addEventListener('resize', () => map && map.resize());
