@@ -3,6 +3,10 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'velocompteur/**'
+      - 'velocompteur-app/**'
+      - '.github/workflows/velocompteur-android.yml'
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.edouardlecarpentier.velocompteur",
+  "appName": "VéloCompteur",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "useLegacyBridge": true
+  }
+}

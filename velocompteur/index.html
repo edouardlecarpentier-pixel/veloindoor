@@ -9,18 +9,23 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
-:root{--bg:#0b0f14;--tile:#141c25;--mut:#93a4b6;--txt:#fff;--ok:#3ee08f;--warn:#ffb020;--red:#ff4d4d;--acc:#38d0ff;--pw:#ffcf4a;--cd:#7cc7ff;--hr:#ff6b8a}
+:root{--bg:#0b0f14;--tile:#141c25;--mut:#93a4b6;--txt:#fff;--ok:#3ee08f;--warn:#ffb020;--red:#ff4d4d;--acc:#38d0ff;--pw:#ffcf4a;--cd:#7cc7ff;--hr:#ff6b8a;--bar:#070a0e;--chip:#18212b;--btn:#24323f;--line:#1f2a35;--input:#0b1118;--rbg:#0d141b;--track:linear-gradient(#1b2a36,#101a22);--bartxt:#cfd8e2}
+body.light{--bg:#eef1f5;--tile:#ffffff;--mut:#5b6b7b;--txt:#0b1118;--ok:#13a65a;--warn:#c47a00;--acc:#0a84c9;--pw:#b07800;--cd:#0a6fb8;--hr:#d1305a;--bar:#ffffff;--chip:#e6ebf0;--btn:#dde4ea;--line:#e3e8ee;--input:#ffffff;--rbg:#dfe5eb;--track:linear-gradient(#c9d3dc,#e6ebf0);--bartxt:#1d2a36}
+body.light .tile{box-shadow:0 1px 3px rgba(0,0,0,.12)}
+body.light .btn{color:#0b1118}body.light .btn.p{color:#fff}body.light .btn.d{background:#fde2e2;color:#a01818}body.light .tabs button.on{color:#fff}
+body.light .rme{background:#0b1118}body.light .dots span{background:rgba(0,0,0,.25)}body.light .dots span.on{background:#0b1118}
+body.light .ctl button{color:#0b1118}body.light .ctl button.on{color:#fff}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none}
 #app{position:fixed;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 button{font:inherit;cursor:pointer}
 /* barre du haut */
-.sbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;background:#070a0e;font-size:13px;font-weight:600;color:#cfd8e2}
+.sbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bar);font-size:13px;font-weight:600;color:var(--bartxt);border-bottom:1px solid var(--line)}
 .tabs{display:flex;gap:4px;flex:0 0 auto}
-.tabs button{border:none;border-radius:9px;padding:6px 10px;font-size:13px;font-weight:700;background:#18212b;color:#cfd8e2;min-width:42px;min-height:34px}
+.tabs button{border:none;border-radius:9px;padding:6px 10px;font-size:13px;font-weight:700;background:var(--chip);color:var(--bartxt);min-width:42px;min-height:34px}
 .tabs button.on{background:var(--acc);color:#03202b}
 .chips{display:flex;gap:4px;flex:1;overflow:hidden}
-.chip{display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:999px;background:#18212b;white-space:nowrap;font-size:11px}
+.chip{display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:999px;background:var(--chip);white-space:nowrap;font-size:11px}
 .chip::before{content:"";width:8px;height:8px;border-radius:50%;background:#55606b}
 .chip.on::before{background:var(--ok)}.chip.wait::before{background:var(--warn)}
 #banner{flex:1;text-align:center;background:var(--red);color:#fff;font-weight:800;font-size:16px;padding:3px 14px;border-radius:999px;display:none;white-space:nowrap}
@@ -31,8 +36,8 @@ button{font:inherit;cursor:pointer}
 .main{flex:1;position:relative;min-height:0}
 .page{position:absolute;top:0;bottom:0;left:0;right:46px;display:none}
 .page.on{display:flex}
-.radar{position:absolute;top:0;bottom:0;right:0;width:46px;background:#0d141b;display:flex;justify-content:center;padding:8px 0}
-.rtrack{position:relative;width:24px;border-radius:12px;background:linear-gradient(#1b2a36,#101a22);overflow:hidden}
+.radar{position:absolute;top:0;bottom:0;right:0;width:46px;background:var(--rbg);display:flex;justify-content:center;padding:8px 0}
+.rtrack{position:relative;width:24px;border-radius:12px;background:var(--track);overflow:hidden}
 .rtrack.alert{background:linear-gradient(#5a1b1b,#2a1012)}
 .rme{position:absolute;top:4px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:#fff}
 .rdot{position:absolute;left:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--warn);transition:top .25s linear}
@@ -80,22 +85,22 @@ button{font:inherit;cursor:pointer}
 .setup.three{grid-template-columns:1.2fr 1fr 1fr}
 .card{background:var(--tile);border-radius:12px;padding:10px 12px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
-.srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1f2a35;font-size:14px}
+.srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
 .srow:last-child{border-bottom:none}
 .srow .n{flex:1;min-width:0}.srow .n small{display:block;color:var(--mut);font-size:11px}
 .srow .bat{font-size:12px;color:var(--mut);width:42px;text-align:right}
-.btn{border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:650;background:#24323f;color:#fff}
+.btn{border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:650;background:var(--btn);color:#fff}
 .btn.p{background:var(--acc);color:#03202b}.btn.d{background:#3a1416;color:#ffb3b3}
 .cfg{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;flex-wrap:wrap}
-.cfg input[type=number]{width:70px;background:#0b1118;color:#fff;border:1px solid #2a3846;border-radius:7px;padding:5px}
+.cfg input[type=number]{width:70px;background:var(--input);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px}
 .cfg input[type=range]{flex:1;min-width:120px;accent-color:var(--acc)}
 .note{font-size:11.5px;color:var(--mut);line-height:1.4;margin-top:6px}
 .np{font-size:15px;font-weight:700;min-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ctl{display:flex;gap:8px;margin:8px 0}
-.ctl button{flex:1;height:52px;border:none;border-radius:12px;background:#24323f;color:#fff;font-size:22px}
+.ctl button{flex:1;height:52px;border:none;border-radius:12px;background:var(--btn);color:#fff;font-size:22px}
 .ctl button.on{background:var(--acc);color:#03202b}
 #mList{margin:6px 0 0;padding-left:20px;font-size:13px;max-height:30vh;overflow:auto}
-#mList li{padding:3px 0;color:#cfd8e2}#mList li.cur{color:var(--acc);font-weight:700}
+#mList li{padding:3px 0;color:var(--bartxt)}#mList li.cur{color:var(--acc);font-weight:700}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
 body.eco .tile b{transition:none}
 @media (max-width:760px){.chips .chip{font-size:0;padding:4px}}
@@ -224,6 +229,7 @@ body.eco .tile b{transition:none}
           <h3 style="margin-top:12px">Réglages</h3>
           <div class="cfg">FC max <input type="number" id="hrmax" min="120" max="220" value="185"> bpm</div>
           <div class="cfg"><label><input type="checkbox" id="autopause" checked> Pause auto à l'arrêt</label></div>
+          <div class="cfg">Thème <select id="theme" style="background:var(--input);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font:inherit"><option value="auto">Auto (clair le jour)</option><option value="dark">Sombre</option><option value="light">Clair</option></select></div>
           <div class="cfg"><label><input type="checkbox" id="eco"> Mode éco batterie (carte sombre, 2D, affichage ralenti)</label></div>
           <div class="cfg"><button class="btn" id="fs">Plein écran paysage</button> <button class="btn" id="demo">Mode démo</button></div>
           <div class="note">Écrans : boutons en haut, balayage sur les données, ou télécommande (Entrée, Espace, flèches). Le mode démo simule GPS, capteurs et radar ; avec un parcours chargé, il le suit pour tester le guidage.</div>
@@ -238,6 +244,9 @@ body.eco .tile b{transition:none}
 <audio id="player" preload="auto"></audio>
 
 <script>
+/* ================= appli Android native (Capacitor) ou navigateur ================= */
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Native);
+
 /* ================= utilitaires ================= */
 const $ = s => document.querySelector(s);
 const fmt = (n, k) => (isFinite(n) ? n : 0).toFixed(k).replace('.', ',');
@@ -385,7 +394,20 @@ function onFix(lat, lon, ele, spdMs, t, head){
   navUpdate();
   $('#cGPS').className = 'chip on';
 }
-function startGPS(){
+async function startGPS(){
+  if (NATIVE){
+    $('#cGPS').className = 'chip wait';
+    try { await Native.LocalNotifications.requestPermissions(); } catch {}
+    try {
+      await Native.BackgroundGeolocation.addWatcher(
+        {backgroundTitle:'VéloCompteur', backgroundMessage:'Suivi GPS de la sortie (continue en arrière-plan)', requestPermissions:true, stale:false, distanceFilter:0},
+        (loc, err) => {
+          if (err){ $('#cGPS').className = 'chip'; toast(err.code === 'NOT_AUTHORIZED' ? 'Autorisez la localisation « Toujours » pour VéloCompteur' : 'GPS : ' + err.message, 5000); return; }
+          if (!S.demo) onFix(loc.latitude, loc.longitude, loc.altitude, loc.speed, loc.time || Date.now(), loc.bearing);
+        });
+    } catch (e) { toast('GPS : ' + (e.message || e)); }
+    return;
+  }
   if (!('geolocation' in navigator)){ toast('GPS indisponible'); return; }
   $('#cGPS').className = 'chip wait';
   navigator.geolocation.watchPosition(
@@ -499,7 +521,13 @@ let frVoice = null;
 const pickVoice = () => { const v = speechSynthesis.getVoices(); frVoice = v.find(x => /^fr(-|_)FR/i.test(x.lang)) || v.find(x => /^fr/i.test(x.lang)) || null; };
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 function say(text){
-  if (!$('#voiceOn').checked || !('speechSynthesis' in window)) return;
+  if (!$('#voiceOn').checked) return;
+  if (NATIVE){
+    duck(0);
+    Native.TextToSpeech.stop().catch(() => {}).finally(() => Native.TextToSpeech.speak({text, lang:'fr-FR', rate:1.0, pitch:1.0, volume:+$('#voiceVol').value, category:'playback'}).then(unduck, unduck));
+    return;
+  }
+  if (!('speechSynthesis' in window)) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; if (frVoice) u.voice = frVoice;
@@ -550,6 +578,7 @@ if ('mediaSession' in navigator){
 }
 document.querySelectorAll('[data-app]').forEach(b => b.onclick = () => {
   const pkg = b.dataset.app;
+  if (NATIVE){ Native.AppLauncher.openUrl({url:pkg}).catch(() => toast('Appli non installée')); return; }
   location.href = `intent://#Intent;package=${pkg};S.browser_fallback_url=${encodeURIComponent('https://play.google.com/store/apps/details?id=' + pkg)};end`;
 });
 
@@ -610,9 +639,40 @@ async function connect(kind){
     await hookDevice(kind, dev);
   } catch (e) { if (e.name !== 'NotFoundError') toast(c.name + ' : ' + e.message); $(c.chip).className = 'chip'; }
 }
-document.querySelectorAll('[data-connect]').forEach(b => b.onclick = () => connect(b.dataset.connect));
+/* ---- Bluetooth natif (appli Android) : connexion directe par adresse, sans sélecteur à chaque fois ---- */
+const full = h => `0000${h.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb`;
+const NUUID = {pw:[full(0x1818), full(0x2a63)], hr:[full(0x180d), full(0x2a37)], rd:[RADAR_SVC, RADAR_CHR]}, BAT = [full(0x180f), full(0x2a19)];
+let bleInit = null, nBusy = {};
+const nInit = () => bleInit || (bleInit = Native.BleClient.initialize({androidNeverForLocation:true}));
+async function nHook(kind, id, name){
+  const c = SENS[kind]; await nInit();
+  $(c.chip).className = 'chip wait'; $(c.st).textContent = 'connexion à ' + (name || 'capteur') + '…';
+  await Native.BleClient.connect(id, () => { $(c.chip).className = 'chip wait'; $(c.st).textContent = 'déconnecté · reconnexion…'; if (kind === 'rd') S.threats = []; }, {timeout:8000});
+  await Native.BleClient.startNotifications(id, NUUID[kind][0], NUUID[kind][1], dv => parse(kind, dv));
+  $(c.chip).className = 'chip on'; $(c.st).textContent = (name || 'capteur') + ' · connecté';
+  try { const v = await Native.BleClient.read(id, BAT[0], BAT[1]); $(c.bat).textContent = v.getUint8(0) + ' %'; } catch {}
+}
+async function nConnect(kind){
+  const c = SENS[kind];
+  try {
+    await nInit();
+    const d = await Native.BleClient.requestDevice({services:[NUUID[kind][0]], optionalServices:[BAT[0]]});
+    const known = store.get('ndevs', {}); known[kind] = {id:d.deviceId, name:d.name}; store.set('ndevs', known);
+    await nHook(kind, d.deviceId, d.name);
+  } catch (e) { if (!/cancel/i.test(String(e && e.message))) toast(c.name + ' : ' + (e.message || e)); if (!SENS_ON(kind)) $(c.chip).className = 'chip'; }
+}
+function nAuto(){
+  const known = store.get('ndevs', {});
+  for (const kind of Object.keys(known)){
+    if (SENS_ON(kind) || nBusy[kind]) continue;
+    nBusy[kind] = true;
+    nHook(kind, known[kind].id, known[kind].name).catch(() => { $(SENS[kind].chip).className = 'chip'; $(SENS[kind].st).textContent = 'en attente du capteur (allumé, à portée ?)'; }).finally(() => nBusy[kind] = false);
+  }
+}
+document.querySelectorAll('[data-connect]').forEach(b => b.onclick = () => NATIVE ? nConnect(b.dataset.connect) : connect(b.dataset.connect));
 let knownDevs = {};
 async function autoReconnect(){
+  if (NATIVE){ nAuto(); return; }
   if (!navigator.bluetooth || !navigator.bluetooth.getDevices){ $('#autoNote').textContent = 'Reconnexion automatique à l\'ouverture : activez dans Chrome le réglage chrome://flags/#enable-web-bluetooth-new-permissions-backend, puis redémarrez Chrome.'; return; }
   try {
     const devs = await navigator.bluetooth.getDevices(), known = store.get('devs', {});
@@ -628,8 +688,8 @@ function tryKnown(){
     busy[kind] = true; hookDevice(kind, knownDevs[kind]).catch(() => { $(SENS[kind].chip).className = 'chip'; $(SENS[kind].st).textContent = 'en attente du capteur…'; }).finally(() => busy[kind] = false);
   }
 }
-setInterval(tryKnown, 10000);   // la montre peut commencer à diffuser après l'ouverture de l'appli
-$('#reconnAll').onclick = () => { tryKnown(); toast('Recherche des capteurs mémorisés…'); };
+setInterval(() => NATIVE ? nAuto() : tryKnown(), 10000);   // la montre peut commencer à diffuser après l'ouverture de l'appli
+$('#reconnAll').onclick = () => { NATIVE ? nAuto() : tryKnown(); toast('Recherche des capteurs mémorisés…'); };
 
 /* ================= radar ================= */
 const rtrack = $('#rtrack'), dotsEl = {}; let lastAlertIds = new Set();
@@ -660,7 +720,7 @@ function setRec(st){
   if (st === 'run'){ wake(); beep(660, 90); }
 }
 $('#rec').onclick = () => { audioCtx(); setRec(S.rec === 'run' ? 'pause' : 'run'); };
-async function wake(){ try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {} }
+async function wake(){ if (NATIVE) return; try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {} }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.rec === 'run') wake(); });
 function persist(){ for (const k of ['pts','dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN']) store.set(k, S[k]); }
 setInterval(persist, 15000);
@@ -680,8 +740,15 @@ $('#gpxOut').onclick = () => {
     x += (ext ? `<extensions>${ext}</extensions>` : '') + '</trkpt>\n';
   }
   x += '</trkseg></trk>\n</gpx>';
+  const fname = 'sortie-' + new Date(S.pts[0].t).toISOString().slice(0,16).replace(/[:T]/g, '-') + '.gpx';
+  if (NATIVE){
+    Native.Filesystem.writeFile({path:fname, data:x, directory:Native.Directory.Cache, encoding:Native.Encoding.UTF8})
+      .then(r => Native.Share.share({title:'Sortie vélo', text:'Sortie VéloCompteur', files:[r.uri], dialogTitle:'Enregistrer ou partager la sortie'}))
+      .catch(e => toast('Export : ' + (e.message || e)));
+    return;
+  }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], {type:'application/gpx+xml'}));
-  a.download = 'sortie-' + new Date(S.pts[0].t).toISOString().slice(0,16).replace(/[:T]/g, '-') + '.gpx'; a.click();
+  a.download = fname; a.click();
   toast('Fichier GPX exporté : importez-le dans Strava');
 };
 
@@ -710,6 +777,17 @@ function demoStep(){
   for (const k of ['pw','hr','rd']) $(SENS[k].chip).className = 'chip on';
 }
 
+/* ================= thème clair / sombre ================= */
+function applyTheme(){
+  const t = $('#theme').value, h = new Date().getHours();
+  const light = t === 'light' || (t === 'auto' && h >= 7 && h < 19 && !opt.eco);
+  document.body.classList.toggle('light', light);
+  document.querySelector('meta[name=theme-color]').content = light ? '#ffffff' : '#0b0f14';
+}
+$('#theme').value = store.get('theme', 'auto');
+$('#theme').onchange = e => { store.set('theme', e.target.value); applyTheme(); };
+setInterval(applyTheme, 60000);
+
 /* ================= affichage ================= */
 function render(){
   const now = Date.now(), d = new Date();
@@ -733,7 +811,7 @@ let renderT = null;
 function applyEco(){
   document.body.classList.toggle('eco', opt.eco); $('#eco').checked = opt.eco;
   clearInterval(renderT); renderT = setInterval(render, opt.eco ? 1000 : 250);
-  applyMapOpts();
+  applyMapOpts(); applyTheme();
 }
 $('#eco').onchange = e => { opt.eco = e.target.checked; store.set('eco', opt.eco); applyEco(); };
 $('#hrmax').value = store.get('hrmax', 185); $('#hrmax').onchange = e => store.set('hrmax', +e.target.value);
