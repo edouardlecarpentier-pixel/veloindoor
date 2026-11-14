@@ -61,8 +61,8 @@ button{font:inherit;cursor:pointer}
 #mapwrap{position:absolute;inset:0}
 #map{position:absolute;inset:0;background:#dfe3e8}
 #mapwrap.dark #map{background:#111}
-.mapbtns{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;z-index:5}
-.mapbtns button{width:44px;height:44px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:15px;font-weight:800}
+.mapbtns{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px;z-index:5}
+.mapbtns button{width:38px;height:38px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:15px;font-weight:800}
 .mapbtns button.on{background:var(--acc);color:#03202b}
 .navcard{position:absolute;left:8px;top:8px;z-index:5;background:#13324f;border-radius:12px;padding:6px 12px;display:none;align-items:center;gap:10px;box-shadow:0 3px 10px rgba(0,0,0,.4);max-width:calc(100% - 70px)}
 .navcard .arr{font-size:38px;line-height:1;font-weight:700}
@@ -77,7 +77,7 @@ button{font:inherit;cursor:pointer}
 .grid .big{grid-column:1/3}.grid .big b{font-size:clamp(34px,10vh,72px)}
 .grid4{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr 1fr;gap:6px;padding:6px 6px 24px}
 .grid4 .tile b{font-size:clamp(28px,8vh,60px)}
-.overlay{position:absolute;left:8px;right:8px;bottom:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:6;pointer-events:none}
+.overlay{position:absolute;left:8px;right:54px;bottom:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:6;pointer-events:none}
 .overlay .tile{background:rgba(10,16,22,.88)}
 .overlay .tile b{font-size:clamp(20px,5vh,32px)}
 /* pages réglages / son */
@@ -106,7 +106,7 @@ button{font:inherit;cursor:pointer}
 .cfg input[type=text],.cfg input[type=tel],.cfg input[type=password],.cfg select{background:var(--input);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font:inherit;min-width:0}
 .cfg input.w{flex:1}
 .prog{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:4px}.prog i{display:block;height:100%;width:0;background:var(--acc)}
-#prof{position:absolute;left:8px;right:60px;bottom:22px;height:74px;width:calc(100% - 68px);z-index:4;border-radius:10px;background:rgba(10,16,22,.78);display:none;pointer-events:none}
+#prof{position:absolute;left:8px;right:56px;bottom:22px;height:74px;width:calc(100% - 68px);z-index:4;border-radius:10px;background:rgba(10,16,22,.78);display:none;pointer-events:none}
 #mapwrap.full #prof{bottom:104px}
 .climbcard{position:absolute;left:8px;top:84px;z-index:5;background:#5a3a0e;color:#fff;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700;display:none;max-width:calc(100% - 70px)}
 .climbcard.in{background:#8a2f12}
@@ -134,6 +134,7 @@ button{font:inherit;cursor:pointer}
 .wxrt{font-size:13px;background:var(--tile);border-radius:10px;padding:6px 8px}
 .wxstrip{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:4px}.wxstrip i{flex:1}
 .wxlab{display:flex;justify-content:space-between;font-size:10px;color:var(--mut)}
+#radTime{position:absolute;right:56px;top:40px;z-index:5;background:rgba(10,16,22,.85);color:#9fd4ff;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:700;display:none}
 #wxBadge{position:absolute;right:60px;top:8px;z-index:5;background:rgba(10,16,22,.85);color:#fff;border-radius:10px;padding:4px 9px;font-size:14px;font-weight:800;display:none}
 @media (orientation:portrait){.wx{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
@@ -173,12 +174,14 @@ body.eco .tile b{transition:none}
           <div class="navcard" id="nav"><div class="arr" id="navArr">↰</div><div><b id="navDist">300 m</b><span id="navTxt">Tournez à gauche</span></div></div>
           <div class="climbcard" id="climb"></div>
           <div id="wxBadge"></div>
+          <div id="radTime"></div>
           <canvas id="prof"></canvas>
           <div class="mapbtns">
             <button id="b3d" title="Vue 3D">2D</button><button id="bFly" title="Survol du parcours en 3D">▶</button>
             <button id="bSat" title="Vue satellite">🛰</button>
             <button id="bDark" title="Carte sombre">☾</button>
             <button id="bProf" title="Profil d'altitude">⛰</button>
+            <button id="bRad" title="Radar de pluie">☔</button>
             <button id="bCenter" title="Recentrer">◎</button>
           </div>
         </div>
@@ -206,7 +209,7 @@ body.eco .tile b{transition:none}
             <g id="wArrow"><line x1="0" y1="-90" x2="0" y2="-40" data-c="stroke" stroke-width="9" stroke-linecap="round"/><path d="M-15,-50 L0,-28 L15,-50 Z" data-c="fill"/></g>
           </svg>
           <b id="wxWind">--</b><span id="wxWindTxt">Vent</span><span id="wxEff"></span>
-          <button class="btn" id="wxRefresh">Actualiser</button>
+          <div class="cfg" style="justify-content:center"><button class="btn" id="wxRefresh">Actualiser</button> Allure prévue <input type="number" id="etaSpd" min="10" max="45" value="25"> km/h</div>
         </div>
         <div class="wxr">
           <div id="wxTiles"></div>
@@ -1123,16 +1126,19 @@ function wxRender(){
 }
 // vent sur la suite du parcours (vent actuel, appliqué à chaque tronçon)
 function wxRouteRender(){
-  const box = $('#wxRoute'), c = WX.data && WX.data.current;
-  if (!S.rs || !c){ box.innerHTML = '<div class="note">Chargez un parcours pour voir le vent sur la suite du trajet.</div>'; return; }
-  const i0 = S.pos ? S.aIdx : 0, i1 = Math.min(S.rs.length - 1, i0 + 3000), segs = [];
-  for (let i = i0; i + 20 <= i1; i += 20) segs.push(windRel(c.wind_direction_10m, brg(S.rs[i], S.rs[i + 20])));
-  if (!segs.length){ box.innerHTML = ''; return; }
-  const pct = t => Math.round(segs.filter(s => t === 'côté' ? s.type.startsWith('côté') : s.type === t).length/segs.length*100);
-  const eff = segs.reduce((a, s) => a + s.head, 0)/segs.length*c.wind_speed_10m;
-  const km = (S.rs[i0 + segs.length*20 - 1] || S.rs[i1]).d - S.rs[i0].d;
-  box.innerHTML = `<div class="wxrt">Sur les prochains ${fmtDist(km)} : <b style="color:${windCol('face')}">${pct('face')} % de face</b> · <b style="color:${windCol('dos')}">${pct('dos')} % de dos</b> · <b style="color:${windCol('côté')}">${pct('côté')} % de côté</b> · effet moyen : ${eff >= 0 ? 'freine' : 'pousse'} ${Math.round(Math.abs(eff))} km/h</div>` +
-    `<div class="wxstrip">${segs.map(s => `<i style="background:${windCol(s.type)}"></i>`).join('')}</div><div class="wxlab"><span>maintenant</span><span>+${fmtDist(km)}</span></div>`;
+  const box = $('#wxRoute');
+  if (!S.rs){ box.innerHTML = '<div class="note">Chargez un parcours pour voir le vent sur le trajet, le meilleur sens et la météo à votre heure de passage.</div>'; return; }
+  const from = S.pos ? S.along : 0, segs = routeWindSegs(from, false).filter(x => x.d - from <= 30000);
+  let html = '';
+  if (segs.length){
+    const pct = t => Math.round(segs.filter(x => t === 'côté' ? x.type.startsWith('côté') : x.type === t).length/segs.length*100);
+    const eff = segs.reduce((a, x) => a + x.ws*x.head, 0)/segs.length, km = segs[segs.length - 1].d - from + 200;
+    html += `<div class="wxrt">Sur les prochains ${fmtDist(km)}${RW.s ? ' (à l\'heure de passage)' : ''} : <b style="color:${windCol('face')}">${pct('face')} % de face</b> · <b style="color:${windCol('dos')}">${pct('dos')} % de dos</b> · <b style="color:${windCol('côté')}">${pct('côté')} % de côté</b> · effet moyen : ${eff >= 0 ? 'freine' : 'pousse'} ${Math.round(Math.abs(eff))} km/h` +
+      `<div class="wxstrip">${segs.map(x => `<i style="background:${windCol(x.type)}"></i>`).join('')}</div><div class="wxlab"><span>maintenant</span><span>+${fmtDist(km)}</span></div></div>`;
+  }
+  html += dirAdviceHtml() + etaHtml();
+  box.innerHTML = html;
+  const rb = $('#wxRev'); if (rb) rb.onclick = reverseRoute;
 }
 // alertes vocales : pluie imminente, coucher du soleil, fortes rafales
 function wxAlerts(){
@@ -1147,7 +1153,135 @@ function wxAlerts(){
 setInterval(() => { wxFetch(false); if (page === 3) wxRender(); }, 60000);
 setInterval(wxAlerts, 5*60000);
 setTimeout(() => wxFetch(false), 4000);
-$('#wxRefresh').onclick = () => wxFetch(true);
+$('#wxRefresh').onclick = () => { wxFetch(true); routeWxFetch(true); };
+
+/* ================= météo le long du parcours, à l'heure de passage ================= */
+const RW = {s:null, at:0, key:''};   // s : [{i, d, lat, lon, h:{t[], temp[], pp[], pr[], ws[], wd[], wg[], wc[]}}]
+['etaSpd'].forEach(id => { const el = $('#' + id); el.value = store.get(id, el.value); el.onchange = () => { store.set(id, +el.value); wxRender(); }; });
+const planSpd = () => (S.moving > 1200 && S.dist > 5000) ? S.dist/S.moving*3.6 : (+$('#etaSpd').value || 25);
+async function routeWxFetch(force){
+  if (!S.rs || S.rs.length < 3) return;
+  const key = S.rs.length + ':' + S.routeTotal.toFixed(0);
+  if (!force && RW.key === key && Date.now() - RW.at < 30*60000) return;
+  const n = Math.min(12, Math.max(2, Math.ceil(S.routeTotal/5000) + 1)), idx = [];
+  for (let k = 0; k < n; k++) idx.push(Math.round(k/(n - 1)*(S.rs.length - 1)));
+  const pts = idx.map(i => S.rs[i]);
+  const q = `latitude=${pts.map(p => p.lat.toFixed(3)).join(',')}&longitude=${pts.map(p => p.lon.toFixed(3)).join(',')}` +
+    '&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kmh&timeformat=unixtime&forecast_days=2';
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q); if (!r.ok) throw new Error('HTTP ' + r.status);
+    let j = await r.json(); if (!Array.isArray(j)) j = [j];
+    RW.s = j.map((o, k) => ({i:idx[k], d:S.rs[idx[k]].d, h:{t:o.hourly.time.map(x => x*1000), temp:o.hourly.temperature_2m, pp:o.hourly.precipitation_probability, pr:o.hourly.precipitation,
+      ws:o.hourly.wind_speed_10m, wd:o.hourly.wind_direction_10m, wg:o.hourly.wind_gusts_10m, wc:o.hourly.weather_code}}));
+    RW.at = Date.now(); RW.key = key;
+    wxRender(); dirAdviceToast();
+  } catch {}
+}
+// prévision du point le plus proche (en distance) à l'instant t
+function rwAt(d, t){
+  if (!RW.s) return null;
+  let s = RW.s[0]; for (const x of RW.s) if (Math.abs(x.d - d) < Math.abs(s.d - d)) s = x;
+  let k = 0; for (let i = 0; i < s.h.t.length; i++) if (Math.abs(s.h.t[i] - t) < Math.abs(s.h.t[k] - t)) k = i;
+  return {temp:s.h.temp[k], pp:s.h.pp[k], pr:s.h.pr[k], ws:s.h.ws[k], wd:s.h.wd[k], wg:s.h.wg[k], wc:s.h.wc[k], t:s.h.t[k]};
+}
+// vent effectif sur chaque tronçon de 200 m, dans un sens donné, à l'heure de passage
+function routeWindSegs(fromD, reverse){
+  const v = planSpd()/3.6, out = [], N = S.rs.length, t0 = Date.now();
+  if (!reverse){
+    for (let i = Math.round(fromD/10); i + 20 < N; i += 20){
+      const d = S.rs[i].d, w = rwAt(d, t0 + (d - fromD)/v*1000), b = brg(S.rs[i], S.rs[i + 20]);
+      const c = w || (WX.data ? {ws:WX.data.current.wind_speed_10m, wd:WX.data.current.wind_direction_10m} : null); if (!c) return [];
+      out.push(Object.assign(windRel(c.wd, b), {ws:c.ws, d}));
+    }
+  } else {
+    for (let i = N - 1; i - 20 >= 0; i -= 20){
+      const d = S.routeTotal - S.rs[i].d, w = rwAt(S.rs[i].d, t0 + d/v*1000), b = brg(S.rs[i], S.rs[i - 20]);
+      if (!w) return [];
+      out.push(Object.assign(windRel(w.wd, b), {ws:w.ws, d}));
+    }
+  }
+  return out;
+}
+// sur une boucle, le bilan global du vent ne dépend pas du sens : ce qui change, c'est le vent du dernier tiers (fatigue)
+function windScore(segs){
+  if (segs.length < 3) return null;
+  const n = segs.length, avg = (a, b) => { const x = segs.slice(a, b); return x.reduce((s, y) => s + y.ws*y.head, 0)/x.length; };
+  const first = avg(0, Math.ceil(n/3)), last = avg(Math.floor(n*2/3), n);
+  return {sc:last, first, second:last};
+}
+const isLoop = () => S.rs && hav(S.rs[0], S.rs[S.rs.length - 1]) < 2000;
+function dirAdvice(){
+  if (!S.rs || !RW.s || (S.rec === 'run' && S.dist > 1000)) return null;
+  const f = windScore(routeWindSegs(0, false)), r = windScore(routeWindSegs(0, true));
+  if (!f || !r) return null;
+  return {f, r, better:r.sc < f.sc - 3 ? 'rev' : 'fwd', gain:Math.abs(f.sc - r.sc), loop:isLoop()};
+}
+const hw = x => (x >= 0 ? 'de face ' : 'de dos ') + Math.round(Math.abs(x)) + ' km/h';
+function dirAdviceHtml(){
+  const a = dirAdvice(); if (!a) return '';
+  const cur = `début : vent ${hw(a.f.first)} · dernier tiers : vent ${hw(a.f.second)}`;
+  if (a.better === 'fwd') return `<div class="wxrt"><b style="color:${windCol('dos')}">✓ Bon sens de parcours</b> · ${cur}</div>`;
+  return `<div class="wxrt"><b style="color:${windCol('face')}">↺ Sens inverse conseillé</b> : ${cur}. Dans l'autre sens : vent ${hw(a.r.first)} au début, ${hw(a.r.second)} sur le dernier tiers : le vent de face quand vous êtes frais, le vent de dos pour rentrer.` +
+    (a.loop ? '' : ' <i>(parcours aller simple : inverser change le point d\'arrivée)</i>') + ` <button class="btn p" id="wxRev">Inverser le parcours</button></div>`;
+}
+let dirToastKey = '';
+function dirAdviceToast(){
+  const a = dirAdvice(); if (!a || a.better !== 'rev' || !a.loop || dirToastKey === RW.key) return;
+  dirToastKey = RW.key; toast('Vent : le parcours dans l\'autre sens est plus favorable · voir l\'écran 💨', 6000);
+}
+function reverseRoute(){
+  if (!S.route) return;
+  const pts = S.route.slice().reverse(); setRoute(pts); store.set('route', pts); RW.key = ''; routeWxFetch(true);
+  toast('Parcours inversé'); wxRender();
+}
+function etaHtml(){
+  if (!S.rs || !RW.s) return '';
+  const v = planSpd()/3.6, from = S.pos ? S.along : 0, now = Date.now(), rows = [];
+  const step = Math.max(5000, (S.routeTotal - from)/6);
+  for (let d = from; d <= S.routeTotal + 1; d += step){
+    const dd = Math.min(d, S.routeTotal), eta = now + (dd - from)/v*1000, w = rwAt(dd, eta), i = Math.min(S.rs.length - 21, Math.round(dd/10));
+    if (!w || i < 0) continue;
+    const wr = windRel(w.wd, brg(S.rs[i], S.rs[i + 20]));
+    rows.push(`<tr><td>km ${fmt(dd/1000, 0)}</td><td>${new Date(eta).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</td><td>${wmo(w.wc)[0]} ${Math.round(w.temp)}°</td><td>💧${w.pp ?? 0} %</td><td style="color:${windCol(wr.type)}">${wr.type === 'face' ? 'face' : wr.type === 'dos' ? 'dos' : 'côté'} ${Math.round(w.ws)} km/h</td></tr>`);
+    if (dd >= S.routeTotal) break;
+  }
+  return `<div class="wxrt"><b>À votre heure de passage</b> (à ${fmt(planSpd(), 0)} km/h)<table class="laps">${rows.join('')}</table></div>`;
+}
+
+/* ================= radar de pluie (RainViewer, 2 dernières heures) ================= */
+const RAD = {on:store.get('radar', false), frames:[], host:'', k:0, timer:null, at:0};
+async function radarLoad(){
+  if (!map || !styleReady()) return;
+  try {
+    const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json();
+    const fr = (j.radar && j.radar.past || []).slice(-6); if (!fr.length) throw new Error('aucune image');
+    radarClear(); RAD.host = j.host; RAD.frames = fr; RAD.at = Date.now();
+    fr.forEach((f, k) => {
+      map.addSource('rad' + k, {type:'raster', tiles:[`${j.host}${f.path}/512/{z}/{x}/{y}/2/1_1.png`], tileSize:512, maxzoom:7, attribution:'Radar <a href="https://www.rainviewer.com" target="_blank">RainViewer</a>'});
+      map.addLayer({id:'rad' + k, type:'raster', source:'rad' + k, paint:{'raster-opacity':0, 'raster-opacity-transition':{duration:0}, 'raster-fade-duration':0}}, 'route-casing');
+    });
+    RAD.k = fr.length - 1; radarShow();
+    clearInterval(RAD.timer); RAD.timer = setInterval(() => { RAD.k = (RAD.k + 1) % RAD.frames.length; radarShow(); }, 800);
+  } catch (e) { toast('Radar de pluie indisponible : ' + (e.message || 'pas de réseau')); RAD.on = false; $('#bRad').classList.remove('on'); }
+}
+function radarShow(){
+  RAD.frames.forEach((f, k) => { try { map.setPaintProperty('rad' + k, 'raster-opacity', k === RAD.k ? .7 : 0); } catch {} });
+  const f = RAD.frames[RAD.k], el = $('#radTime');
+  if (f && el){ el.style.display = 'block'; const last = RAD.k === RAD.frames.length - 1; el.textContent = `☔ ${new Date(f.time*1000).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}${last ? ' · dernière image' : ''}`; }
+}
+function radarClear(){
+  clearInterval(RAD.timer); RAD.timer = null;
+  RAD.frames.forEach((f, k) => { try { map.removeLayer('rad' + k); map.removeSource('rad' + k); } catch {} });
+  RAD.frames = []; const el = $('#radTime'); if (el) el.style.display = 'none';
+}
+$('#bRad').onclick = () => {
+  RAD.on = !RAD.on; store.set('radar', RAD.on); $('#bRad').classList.toggle('on', RAD.on);
+  if (RAD.on){ toast('Radar de pluie : 1 dernière heure en boucle (précision limitée, zoom 7)', 3500); radarLoad(); } else radarClear();
+};
+$('#bRad').classList.toggle('on', RAD.on);
+setInterval(() => { if (RAD.on && Date.now() - RAD.at > 10*60000) radarLoad(); }, 60000);
+if (map) map.on('load', () => { if (RAD.on) radarLoad(); routeWxFetch(false); });
+setInterval(() => routeWxFetch(false), 5*60000);
 
 /* ================= parcours et guidage virage par virage ================= */
 $('#gpxIn').onclick = () => $('#gpxFile').click();
@@ -1156,7 +1290,7 @@ $('#gpxFile').onchange = async e => {
   const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
   const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => { const e = n.querySelector('ele'); return {lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon'), ele:e ? +e.textContent : null}; }).filter(p => isFinite(p.lat) && isFinite(p.lon));
   if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
-  setRoute(pts); store.set('route', pts);
+  setRoute(pts); store.set('route', pts); RW.key = ''; routeWxFetch(true);
   toast(`Parcours chargé : ${fmt(S.routeTotal/1000, 1)} km, ${S.turns.length} changements de direction`, 4000);
   $('#offSt').textContent = offEstimate();
   e.target.value = '';
