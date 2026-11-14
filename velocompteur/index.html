@@ -283,6 +283,15 @@ body.eco .tile b{transition:none}
           <div class="note">Appui long sur une donnée pour la remplacer. Nouveau tour : bouton ⏱ en haut, ou double appui sur la télécommande.</div>
         </div>
         <div class="card">
+          <h3>Vélo et cycliste</h3>
+          <div class="cfg">Cycliste <input type="number" id="riderKg" min="30" max="200" value="124"> kg · Vélo <input type="number" id="bikeKg" min="5" max="40" value="12"> kg</div>
+          <div class="cfg">Position <select id="cda"><option value="0.52">Très relevée</option><option value="0.47" selected>Relevée (VAE, cintre route en haut)</option><option value="0.42">Sportive (cocottes)</option><option value="0.36">Aéro (en bas du cintre)</option></select></div>
+          <div class="cfg"><label><input type="checkbox" id="ebike" checked> Vélo électrique (assistance coupée à 25 km/h)</label></div>
+          <div class="cfg"><button class="btn" id="estReset">Recalibrer</button></div>
+          <div class="note" id="estSt"></div>
+          <div class="note">Puissance estimée à partir de la vitesse, de la pente, du poids, du vent et de la température. Aide du moteur = puissance estimée − puissance des pédales Rally. Au-delà de 25 km/h le moteur est coupé : l'appli s'en sert pour se calibrer toute seule. Précision attendue ±15–20 %.</div>
+        </div>
+        <div class="card">
           <h3>Strava</h3>
           <div class="cfg">Client ID <input type="text" class="w" id="stId" inputmode="numeric"></div>
           <div class="cfg">Client Secret <input type="password" class="w" id="stSec"></div>
@@ -335,6 +344,7 @@ const S = {
   rse:null, climbs:[], lastFastT:0,
   laps:store.get('laps', []), lapStart:store.get('lapStart', null),
   tzHr:store.get('tzHr', [0,0,0,0,0]), tzPw:store.get('tzPw', [0,0,0,0,0,0,0]),
+  estKj:store.get('estKj', 0), motorKj:store.get('motorKj', 0),
   npSum:store.get('npSum', 0), npN:store.get('npN', 0), kj:store.get('kj', 0), pwMax:store.get('pwMax', 0), hrMax:store.get('hrMax', 0), pw1:[],
 };
 if (S.pts.length){
@@ -610,10 +620,11 @@ const FIELDS = {
   dist:['Distance','km',''], time:['Temps','',''], clock:['Heure','',''], kcal:['Calories','kcal',''],
   dp:['Dénivelé +','m',''], grade:['Pente','',''], ele:['Altitude','m',''],
   navshort:['Prochaine direction','',''], left:['Reste (parcours)','km',''], climb:['Montée','',''],
+  pwest:['Puissance estimée','W','pw'], motor:['Aide moteur (est.)','W',''], motorpct:['Part moteur (est.)','%',''],
   wind:['Vent (relatif)','km/h',''], temp:['Température','°C',''],
   lap:['Tour n°','',''], laptime:['Temps du tour','',''], lapdist:['Distance du tour','km',''], lapspd:['Vitesse du tour','km/h',''], lappw:['Puissance du tour','W','pw'],
 };
-const LAY0 = {p0:['spd','pw3','cad','hr','dist','time','dp'], p1:['spd','pw3','hr','cad','dist','time','avg','pwavg','dp','grade','navshort','hravg'], p2:['spd','dist','left','hr']};
+const LAY0 = {p0:['spd','pw3','cad','hr','dist','time','dp'], p1:['spd','pw3','hr','cad','dist','time','avg','pwavg','dp','grade','motor','pwest'], p2:['spd','dist','left','hr']};
 let LAY = Object.assign({}, LAY0, store.get('layout', {}));
 function buildTiles(){
   document.querySelectorAll('[data-lay]').forEach(box => {
@@ -653,6 +664,7 @@ function zoneAlert(kind, z, lim, label){
 }
 function tick1(){
   const now = Date.now(), run = S.rec === 'run', moving = S.spd > 2.5 || !$('#autopause').checked;
+  estPower(now);
   const pwOk = S.pw !== null && now - S.pwT < 4000, hrOk = S.hr !== null && now - S.hrT < 6000;
   if (run && moving){
     if (pwOk){
@@ -661,6 +673,7 @@ function tick1(){
       S.kj += S.pw/1000; S.tzPw[pwZone(S.pw) - 1]++; S.pwMax = Math.max(S.pwMax, S.pw);
     }
     if (hrOk){ S.tzHr[hrZone(S.hr) - 1]++; S.hrMax = Math.max(S.hrMax, S.hr); }
+    if (EST.p !== null){ S.estKj += EST.p/1000; if (EST.motor !== null) S.motorKj += EST.motor/1000; }
   }
   if (run){
     zoneAlert('hr', hrOk ? hrZone(S.hr) : 0, +$('#hrAl').value, 'Fréquence cardiaque');
@@ -693,7 +706,7 @@ $('#lapB').onclick = newLap;
 
 /* ================= fin de sortie : résumé + Strava ================= */
 function clearRide(){
-  Object.assign(S, {pts:[], dist:0, moving:0, dp:0, vmax:0, pwSum:0, pwN:0, hrSum:0, hrN:0, eleRef:null, gradeBuf:[], grade:0,
+  Object.assign(S, {estKj:0, motorKj:0, pts:[], dist:0, moving:0, dp:0, vmax:0, pwSum:0, pwN:0, hrSum:0, hrN:0, eleRef:null, gradeBuf:[], grade:0,
     laps:[], lapStart:null, tzHr:[0,0,0,0,0], tzPw:[0,0,0,0,0,0,0], npSum:0, npN:0, kj:0, pwMax:0, hrMax:0, pw1:[]});
   store.set('stUploaded', null); updateTrack(true); persist();
   if (NATIVE) Native.Filesystem.deleteFile({path:'sortie-en-cours.json', directory:Native.Directory.Data}).catch(() => {});
@@ -711,7 +724,7 @@ function openSummary(){
   box.innerHTML = `<h3>Résumé de la sortie</h3><div class="sumgrid">` +
     st('Distance', fmt(S.dist/1000, 2) + ' km') + st('Temps', hms(S.moving)) + st('Vitesse moy.', fmt(S.moving ? S.dist/S.moving*3.6 : 0, 1) + ' km/h') + st('Vitesse max', fmt(S.vmax, 1) + ' km/h') +
     st('Dénivelé +', Math.round(S.dp) + ' m') + st('Puissance moy.', S.pwN ? Math.round(S.pwSum/S.pwN) + ' W' : '--') + st('Puissance NP', np ? np + ' W' : '--') + st('Puissance max', S.pwMax ? S.pwMax + ' W' : '--') +
-    st('FC moy.', S.hrN ? Math.round(S.hrSum/S.hrN) + ' bpm' : '--') + st('FC max', S.hrMax ? S.hrMax + ' bpm' : '--') + st('Calories', S.kj ? Math.round(S.kj) + ' kcal' : '--') + st('Charge (TSS)', tss ?? '--') +
+    st('FC moy.', S.hrN ? Math.round(S.hrSum/S.hrN) + ' bpm' : '--') + st('FC max', S.hrMax ? S.hrMax + ' bpm' : '--') + st('Calories', S.kj ? Math.round(S.kj) + ' kcal' : '--') + st('Charge (TSS)', tss ?? '--') + (S.motorKj > 1 ? st('Énergie toi / moteur', `${Math.round(S.kj)} / ~${Math.round(S.motorKj)} kJ`) + st('Part du moteur', `~${Math.round(S.motorKj/(S.motorKj + S.kj)*100)} %`) : S.estKj > 1 && !S.kj ? st('Énergie estimée', `~${Math.round(S.estKj)} kJ`) : '') +
     `</div>` + zoneBars(S.tzPw, 'Temps par zone de puissance', 7) + zoneBars(S.tzHr, 'Temps par zone de FC', 5) +
     (S.laps.length ? `<h3 style="margin-top:10px">Tours</h3><table class="laps"><tr><th>#</th><th>Temps</th><th>km</th><th>km/h</th><th>W</th><th>bpm</th></tr>` +
       S.laps.map((l, i) => `<tr><td>${i + 1}</td><td>${ms(l.t)}</td><td>${fmt(l.d/1000, 2)}</td><td>${fmt(l.spd, 1)}</td><td>${l.pw ? Math.round(l.pw) : '--'}</td><td>${l.hr ? Math.round(l.hr) : '--'}</td></tr>`).join('') + '</table>' : '') +
@@ -1283,6 +1296,42 @@ setInterval(() => { if (RAD.on && Date.now() - RAD.at > 10*60000) radarLoad(); }
 if (map) map.on('load', () => { if (RAD.on) radarLoad(); routeWxFetch(false); });
 setInterval(() => routeWxFetch(false), 5*60000);
 
+/* ================= puissance estimée (physique) et aide du moteur ================= */
+// P = v·[m·g·(sin θ + Crr·cos θ) + m·a] + ½·ρ·CdA·(v + vent de face)²·v, divisé par le rendement de transmission
+const EST = {p:null, motor:null, vPrev:null, tPrev:0, vBuf:[], k:store.get('estK', 1), kN:store.get('estKN', 0)};
+['riderKg','bikeKg','cda','ebike'].forEach(id => { const el = $('#' + id); const v = store.get(id, el.type === 'checkbox' ? el.checked : el.value); if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  el.onchange = () => store.set(id, el.type === 'checkbox' ? el.checked : +el.value); });
+function curGrade(){
+  if (S.rse && S.pos && !S.off && S.aIdx > 2 && S.aIdx + 3 < S.rse.length) return (S.rse[S.aIdx + 3] - S.rse[S.aIdx - 2])/50*100;
+  return S.grade || 0;
+}
+function estPower(now){
+  const v0 = S.spd/3.6; EST.vBuf.push(v0); if (EST.vBuf.length > 3) EST.vBuf.shift();
+  const v = EST.vBuf.reduce((a, b) => a + b, 0)/EST.vBuf.length;
+  const dt = EST.tPrev ? (now - EST.tPrev)/1000 : 1, a = (EST.mov = v0 < 1.4 ? 0 : (EST.mov || 0) + 1) < 5 || dt > 3 ? 0 : Math.max(-0.8, Math.min(0.8, (v - EST.vPrev)/Math.max(.5, dt)));
+  EST.vPrev = v; EST.tPrev = now;
+  if (v < 1.4 || now - (lastFix ? lastFix.t : 0) > 5000){ EST.p = null; EST.motor = null; return; }
+  const m = (+$('#riderKg').value || 80) + (+$('#bikeKg').value || 12) + 1.5, g = 9.81, gr = Math.max(-20, Math.min(20, curGrade()))/100, th = Math.atan(gr);
+  const T = WX.data ? WX.data.current.temperature_2m : 15, ele = S.ele ?? (S.rse && S.rse[S.aIdx]) ?? 50;
+  const rho = 1.225*(288.15/(T + 273.15))*Math.exp(-ele/8500);
+  const wn = typeof wxNow === 'function' ? wxNow() : null, wh = wn && wn.w ? wn.spd/3.6*wn.w.head*0.65 : 0;   // vent à hauteur du cycliste ≈ 65 % du vent à 10 m
+  const va = v + wh, cda = +$('#cda').value || 0.45;
+  const pg = m*g*Math.sin(th)*v, pr = m*g*0.0055*Math.cos(th)*v, pa = 0.5*rho*cda*va*Math.abs(va)*v, pk = m*a*v;
+  const raw = (pg + EST.k*(pr + pa) + pk)/0.97;
+  EST.p = Math.max(0, Math.round(raw));
+  const rider = S.pwBuf.length && now - S.pwT < 4000 ? S.pwBuf.reduce((x, y) => x + y.w, 0)/S.pwBuf.length : null;
+  const ebike = $('#ebike').checked;
+  EST.motor = ebike && rider !== null ? (S.spd > 25.5 ? 0 : Math.max(0, Math.round(EST.p - rider))) : null;
+  // auto-calibration : au-delà de 25 km/h le moteur du Creo est coupé, donc toute la puissance vient des pédales
+  if (ebike && rider !== null && S.spd > 26.5 && S.spd < 45 && Math.abs(gr) < 0.02 && Math.abs(a) < 0.15 && rider > 60 && (pr + pa) > 40){
+    const kWant = (rider*0.97 - pg - pk)/(pr + pa);
+    if (kWant > 0.5 && kWant < 1.8){ EST.k = EST.k*0.98 + kWant*0.02; EST.kN++; if (EST.kN % 30 === 0){ store.set('estK', EST.k); store.set('estKN', EST.kN); } }
+  }
+}
+function estCalibTxt(){ return EST.kN < 60 ? `Calibration : ${Math.round(EST.kN/60*100)} % (roulez > 26 km/h sur le plat avec les pédales)` : `Calibré (facteur ${fmt(EST.k, 2)}, ${Math.round(EST.kN/60)} min de données)`; }
+$('#estReset').onclick = () => { EST.k = 1; EST.kN = 0; store.set('estK', 1); store.set('estKN', 0); $('#estSt').textContent = estCalibTxt(); toast('Calibration remise à zéro'); };
+setInterval(() => { const el = $('#estSt'); if (el && page === 4) el.textContent = estCalibTxt(); }, 2000);
+
 /* ================= parcours et guidage virage par virage ================= */
 $('#gpxIn').onclick = () => $('#gpxFile').click();
 $('#gpxFile').onchange = async e => {
@@ -1555,7 +1604,7 @@ function setRec(st){
 $('#rec').onclick = () => { audioCtx(); setRec(S.rec === 'run' ? 'pause' : 'run'); };
 async function wake(){ if (NATIVE) return; try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {} }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.rec === 'run') wake(); });
-const PKEYS = ['dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN','laps','lapStart','tzHr','tzPw','npSum','npN','kj','pwMax','hrMax'];
+const PKEYS = ['estKj','motorKj','dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN','laps','lapStart','tzHr','tzPw','npSum','npN','kj','pwMax','hrMax'];
 function persist(){
   store.set('pts', packPts(S.pts)); for (const k of PKEYS) store.set(k, S[k]);
   store.set('recState', S.rec); store.set('savedAt', Date.now());
@@ -1664,6 +1713,9 @@ function render(){
   setK('wind', wxShort()); setK('temp', WX.data ? fmt(WX.data.current.temperature_2m, 0) : '--');
   const wn = wxNow(), wb = $('#wxBadge');
   if (wn){ wb.style.display = 'block'; wb.textContent = '💨 ' + wxShort() + (wn.w ? ' · ' + (wn.w.type.startsWith('côté') ? 'côté' : wn.w.type) : ''); wb.style.color = wn.w ? windCol(wn.w.type) : '#fff'; } else wb.style.display = 'none';
+  setK('pwest', EST.p === null ? '--' : String(EST.p)); setK('motor', EST.motor === null ? '--' : String(EST.motor));
+  setK('motorpct', EST.motor === null || !EST.p ? '--' : String(Math.round(EST.motor/Math.max(EST.p, 1)*100)));
+  if (pw3 === null && EST.p !== null && !SENS_ON('pw')) setK('pw3', '~' + EST.p);
   const lc = lapCur(); setK('lap', String(S.laps.length + 1)); setK('laptime', ms(lc.t)); setK('lapdist', fmt(lc.d/1000, 2)); setK('lapspd', fmt(lc.spd, 1)); setK('lappw', lc.pw ? String(Math.round(lc.pw)) : '--');
   setK('cad', S.cad !== null && fresh(S.cadT) ? String(S.cad) : '--');
   const hrOk = S.hr !== null && fresh(S.hrT, 6000); setK('hr', hrOk ? String(S.hr) : '--');
