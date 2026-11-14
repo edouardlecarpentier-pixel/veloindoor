@@ -137,7 +137,7 @@ body.eco .tile b{transition:none}
           <div id="map"></div>
           <div class="navcard" id="nav"><div class="arr" id="navArr">↰</div><div><b id="navDist">300 m</b><span id="navTxt">Tournez à gauche</span></div></div>
           <div class="mapbtns">
-            <button id="b3d" title="Vue 3D">3D</button>
+            <button id="b3d" title="Vue 3D">2D</button><button id="bFly" title="Survol du parcours en 3D">▶</button>
             <button id="bSat" title="Vue satellite">🛰</button>
             <button id="bDark" title="Carte sombre">☾</button>
             <button id="bCenter" title="Recentrer">◎</button>
@@ -273,7 +273,7 @@ const S = {
   route:null, rs:null, turns:[], along:0, aIdx:0, offT:0, off:false, routeTotal:0,
 };
 if (S.pts.length) S.rec = 'pause';
-const opt = { sat:store.get('sat', false), dark:store.get('dark', false), d3:store.get('d3', false), eco:store.get('eco', false) };
+const opt = { sat:store.get('sat', false), dark:store.get('dark', false), view:store.get('view', store.get('d3',false) ? 1 : 0), eco:store.get('eco', false) };
 
 /* ================= écrans ================= */
 const pages = [...document.querySelectorAll('.page')];
@@ -315,6 +315,7 @@ const style = {
     hill:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
     route:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
     track:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
+    ahead:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
   },
   layers:[
     {id:'bg', type:'background', paint:{'background-color':'#dfe3e8'}},
@@ -325,22 +326,27 @@ const style = {
     {id:'hill', type:'hillshade', source:'hill', layout:{visibility:'none'}, paint:{'hillshade-exaggeration':0.35, 'hillshade-shadow-color':'#3a3a3a'}},
     {id:'route-casing', type:'line', source:'route', paint:{'line-color':'#ffffff', 'line-width':9, 'line-opacity':.9}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'route', type:'line', source:'route', paint:{'line-color':'#2f7cf6', 'line-width':6}, layout:{'line-cap':'round','line-join':'round'}},
+    {id:'ahead-glow', type:'line', source:'ahead', paint:{'line-color':'#ffe14d', 'line-width':['interpolate',['linear'],['zoom'],14,10,18,26], 'line-opacity':.35, 'line-blur':6}, layout:{'line-cap':'round','line-join':'round'}},
+    {id:'ahead', type:'line', source:'ahead', paint:{'line-color':'#ffe14d', 'line-width':['interpolate',['linear'],['zoom'],14,4,18,10]}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'track', type:'line', source:'track', paint:{'line-color':'#ff5a36', 'line-width':4}, layout:{'line-cap':'round','line-join':'round'}},
   ],
 };
+const styleReady = () => !!(map && map.style && map.style._loaded);
 let map = null, meMarker = null, follow = true, lastCam = 0;
 try {
-  map = new maplibregl.Map({container:'map', style, center:[-0.33, 49.205], zoom:15, attributionControl:{compact:true}, keyboard:false, maxPitch:75});
+  map = new maplibregl.Map({container:'map', style, center:[-0.33, 49.205], zoom:15, attributionControl:{compact:true}, keyboard:false, maxPitch:85});
   map.dragRotate.disable(); map.touchZoomRotate.disableRotation();
   map.on('dragstart', () => follow = false);
+  map.on('touchstart', () => fly && stopFly()); map.on('mousedown', () => fly && stopFly());
   const el = document.createElement('div'); el.className = 'me dot';
   meMarker = new maplibregl.Marker({element:el, rotationAlignment:'map', pitchAlignment:'map'}).setLngLat([-0.33, 49.205]).addTo(map);
-  map.on('load', () => { applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); });
+  map.on('load', () => { applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); updateAhead(true); });
 } catch (e) { toast('Carte indisponible : ' + e.message, 5000); }
 
 function applyMapOpts(){
-  if (!map || !map.isStyleLoaded()) return;
-  const sat = opt.sat && !opt.eco, dark = !sat && (opt.dark || opt.eco), d3 = opt.d3 && !opt.eco;
+  if (!styleReady()) return;
+  const sat = opt.sat && !opt.eco, dark = !sat && (opt.dark || opt.eco), v = opt.eco ? 0 : opt.view, d3 = v > 0;
+  try { map.setSky(d3 ? {'sky-color':'#7fb6ec', 'horizon-color':'#dcebf7', 'fog-color':'#dcebf7', 'sky-horizon-blend':.6, 'horizon-fog-blend':.6, 'fog-ground-blend':.4} : {'sky-color':'#000000','horizon-fog-blend':1,'fog-ground-blend':1}); } catch {}
   map.setLayoutProperty('cyclosm', 'visibility', dark || sat ? 'none' : 'visible');
   map.setLayoutProperty('dark', 'visibility', dark ? 'visible' : 'none');
   map.setLayoutProperty('esri', 'visibility', sat ? 'visible' : 'none');   // fond mondial
@@ -348,15 +354,16 @@ function applyMapOpts(){
   $('#bSat').classList.toggle('on', sat);
   map.setPaintProperty('bg', 'background-color', dark ? '#111' : '#dfe3e8');
   map.setLayoutProperty('hill', 'visibility', d3 ? 'visible' : 'none');
-  try { map.setTerrain(d3 ? {source:'dem', exaggeration:1.4} : null); } catch {}
+  try { map.setTerrain(d3 ? {source:'dem', exaggeration:v === 2 ? 1.2 : 1.4} : null); } catch {}
   $('#mapwrap').classList.toggle('dark', dark);
-  $('#b3d').classList.toggle('on', d3); $('#bDark').classList.toggle('on', dark);
+  $('#b3d').classList.toggle('on', d3); $('#b3d').textContent = ['2D','3D','👁'][v]; $('#b3d').title = ['Vue 2D','Vue 3D','Vue pilote (immersive)'][v]; $('#bDark').classList.toggle('on', dark);
   meMarker && (meMarker.getElement().className = d3 ? 'me' : 'me dot');
   if (!d3) map.easeTo({pitch:0, bearing:0, duration:600});
   else follow = true;
   lastCam = 0;
 }
-$('#b3d').onclick = () => { if (opt.eco){ toast('Désactivez le mode éco pour la 3D'); return; } opt.d3 = !opt.d3; store.set('d3', opt.d3); applyMapOpts(); };
+$('#b3d').onclick = () => { if (opt.eco){ toast('Désactivez le mode éco pour la 3D'); return; } opt.view = (opt.view + 1) % 3; store.set('view', opt.view); toast(['Vue 2D','Vue 3D','Vue pilote : le chemin devant vous en jaune' + (opt.sat ? '' : ' · activez 🛰 pour les photos')][opt.view], 2500); applyMapOpts(); };
+$('#bFly').onclick = () => fly ? stopFly() : startFly();
 $('#bDark').onclick = () => { opt.dark = !opt.dark; if (opt.dark){ opt.sat = false; store.set('sat', false); } store.set('dark', opt.dark); applyMapOpts(); };
 $('#bSat').onclick = () => { if (opt.eco){ toast('Désactivez le mode éco pour la vue satellite'); return; } opt.sat = !opt.sat; if (opt.sat){ opt.dark = false; store.set('dark', false); } store.set('sat', opt.sat); applyMapOpts(); };
 $('#bCenter').onclick = () => { follow = true; lastCam = 0; moveCamera(true); };
@@ -364,13 +371,55 @@ function moveCamera(force){
   if (!map || !S.pos || !follow) return;
   const now = Date.now(), gap = opt.eco ? 2000 : 800;
   if (!force && now - lastCam < gap) return; lastCam = now;
-  const d3 = opt.d3 && !opt.eco;
-  if (d3) map.easeTo({center:[S.pos.lon, S.pos.lat], zoom:Math.max(map.getZoom(), 16), pitch:62, bearing:S.heading ?? map.getBearing(), duration:900, offset:[0, map.getContainer().clientHeight*0.22]});
+  const v = opt.eco ? 0 : opt.view, h = map.getContainer().clientHeight;
+  if (v === 2) map.easeTo({center:[S.pos.lon, S.pos.lat], zoom:17.6, pitch:78, bearing:aheadBearing() ?? S.heading ?? map.getBearing(), duration:900, offset:[0, h*0.32]});
+  else if (v === 1) map.easeTo({center:[S.pos.lon, S.pos.lat], zoom:Math.max(map.getZoom(), 16), pitch:62, bearing:S.heading ?? map.getBearing(), duration:900, offset:[0, h*0.22]});
   else map.easeTo({center:[S.pos.lon, S.pos.lat], duration:opt.eco ? 0 : 600});
+}
+// cap vers un point ~40 m plus loin sur le parcours : la caméra regarde là où l'on va
+function aheadBearing(){
+  if (!S.rs || S.off || !S.rs[S.aIdx]) return null;
+  const tgt = S.rs[Math.min(S.rs.length - 1, S.aIdx + 4)];
+  return hav(S.rs[S.aIdx], tgt) > 5 ? brg(S.rs[S.aIdx], tgt) : null;
+}
+let aheadIdx = -1;
+function updateAhead(force){
+  if (!styleReady()) return;
+  if (!S.rs){ map.getSource('ahead').setData({type:'FeatureCollection', features:[]}); aheadIdx = -1; return; }
+  const i0 = S.pos ? S.aIdx : 0;
+  if (!force && i0 === aheadIdx) return; aheadIdx = i0;
+  const seg = S.rs.slice(i0, i0 + 200).map(p => [p.lon, p.lat]);   // ~2 km devant
+  map.getSource('ahead').setData(seg.length > 1 ? {type:'Feature', geometry:{type:'LineString', coordinates:seg}} : {type:'FeatureCollection', features:[]});
+}
+/* survol du parcours : aperçu 3D vue pilote avant de partir */
+let fly = null;
+function stopFly(){ if (!fly) return; cancelAnimationFrame(fly.raf); fly = null; $('#bFly').classList.remove('on'); updateAhead(true); follow = true; lastCam = 0; moveCamera(true); }
+function startFly(){
+  if (!map || !S.rs || S.rs.length < 3){ toast('Chargez d’abord un parcours GPX'); return; }
+  if (opt.eco){ toast('Désactivez le mode éco pour le survol'); return; }
+  if (opt.view !== 2){ opt.view = 2; store.set('view', 2); applyMapOpts(); }
+  follow = false; $('#bFly').classList.add('on');
+  const startIdx = S.pos ? S.aIdx : 0, t0 = performance.now(), speed = 60; // m/s : 10 km en ~3 min
+  const d0 = S.rs[startIdx].d; let brgS = null;
+  map.getSource('ahead').setData({type:'Feature', geometry:{type:'LineString', coordinates:S.rs.slice(startIdx).map(p => [p.lon, p.lat])}});
+  toast('Survol du parcours · touchez la carte pour arrêter', 3000);
+  const step = now => {
+    if (!fly) return;
+    const d = d0 + (now - t0)/1000*speed;
+    let i = startIdx; while (i < S.rs.length - 1 && S.rs[i+1].d < d) i++;
+    if (i >= S.rs.length - 2){ stopFly(); toast('Fin du survol'); return; }
+    const a = S.rs[i], b = S.rs[i+1], f = Math.min(1, (d - a.d)/Math.max(1, b.d - a.d));
+    const lon = a.lon + (b.lon - a.lon)*f, lat = a.lat + (b.lat - a.lat)*f;
+    const tgt = S.rs[Math.min(S.rs.length - 1, i + 5)], want = brg({lat, lon}, tgt);
+    brgS = brgS === null ? want : (brgS + angDiff(brgS, want)*0.06 + 360) % 360;
+    map.jumpTo({center:[lon, lat], zoom:17.2, pitch:76, bearing:brgS});
+    fly.raf = requestAnimationFrame(step);
+  };
+  fly = {raf:requestAnimationFrame(step)};
 }
 let trackDirty = 0;
 function updateTrack(force){
-  if (!map || !map.isStyleLoaded()) return;
+  if (!styleReady()) return;
   if (!force && ++trackDirty % 3) return;
   map.getSource('track').setData({type:'Feature', geometry:{type:'LineString', coordinates:S.pts.map(p => [p.lon, p.lat])}});
 }
@@ -461,13 +510,14 @@ function setRoute(pts){
   flush();
   S.turns = turns.filter((t, k) => k === 0 || t.d - turns[k - 1].d > 30).map(t => ({...t, said:{}}));
   setRouteLayer();
-  if (map && map.isStyleLoaded()){
+  if (styleReady()){
     const b = new maplibregl.LngLatBounds(); rs.forEach(p => b.extend([p.lon, p.lat]));
     if (!S.pos) map.fitBounds(b, {padding:40, duration:0});
   }
 }
 function setRouteLayer(){
-  if (!map || !map.isStyleLoaded()) return;
+  if (!styleReady()) return;
+  updateAhead(true);
   map.getSource('route').setData(S.rs ? {type:'Feature', geometry:{type:'LineString', coordinates:S.rs.map(p => [p.lon, p.lat])}} : {type:'FeatureCollection', features:[]});
 }
 function turnInfo(a){
@@ -484,7 +534,7 @@ function navUpdate(){
   const from = Math.max(0, S.aIdx - 30), to = Math.min(S.rs.length - 1, S.aIdx + 300);
   for (let i = from; i <= to; i++){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } }
   if (bd > 120){ for (let i = 0; i < S.rs.length; i += 2){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } } }
-  S.aIdx = best; S.along = S.rs[best].d;
+  S.aIdx = best; S.along = S.rs[best].d; if (!fly) updateAhead();
   const now = Date.now();
   if (bd > 50){ if (!S.offT) S.offT = now; if (!S.off && now - S.offT > 8000){ S.off = true; say('Vous avez quitté le parcours'); } }
   else { if (S.off && bd < 30){ S.off = false; say('Parcours retrouvé'); } if (bd < 30) S.offT = 0; }
