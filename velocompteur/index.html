@@ -213,7 +213,9 @@ body.eco .tile b{transition:none}
           <div class="srow"><div class="n">Pédales Garmin Rally<small id="sPW">non connecté · puissance + cadence</small></div><span class="bat" id="bPW"></span><button class="btn p" data-connect="pw">Connecter</button></div>
           <div class="srow"><div class="n">Montre (FC)<small id="sHR">non connecté · partage de la FC à activer sur la montre</small></div><span class="bat" id="bHR"></span><button class="btn p" data-connect="hr">Connecter</button></div>
           <div class="srow"><div class="n">Garmin Varia RTL515<small id="sRD">non connecté · radar</small></div><span class="bat" id="bRD"></span><button class="btn p" data-connect="rd">Connecter</button></div>
-          <div class="note">Appairez une seule fois chaque capteur : l'appli les reconnecte ensuite à l'ouverture. Rally : activer les « connexions ouvertes » dans Garmin Connect. Varia : éloigner l'Edge pendant l'appairage.</div>
+          <div class="cfg"><button class="btn" id="reconnAll">Reconnecter tous les capteurs</button></div>
+          <div class="note" id="autoNote"></div>
+          <div class="note">Appairez une seule fois chaque capteur : l'appli les reconnecte ensuite à l'ouverture, et réessaie toutes les 10 secondes. Rally : activer les « connexions ouvertes » dans Garmin Connect. Varia : éloigner l'Edge pendant l'appairage.</div>
         </div>
         <div class="card">
           <h3>Sortie et parcours</h3>
@@ -558,6 +560,7 @@ const SENS = {
   hr:{svc:'heart_rate', chr:'heart_rate_measurement', chip:'#cHR', st:'#sHR', bat:'#bHR', name:'Montre FC'},
   rd:{svc:RADAR_SVC, chr:RADAR_CHR, chip:'#cRD', st:'#sRD', bat:'#bRD', name:'Varia'},
 };
+const SENS_ON = k => $(SENS[k].chip).classList.contains('on');
 function parse(kind, dv){
   const now = Date.now();
   if (kind === 'hr'){ const f = dv.getUint8(0); S.hr = (f & 1) ? dv.getUint16(1, true) : dv.getUint8(1); S.hrT = now; }
@@ -608,15 +611,28 @@ async function connect(kind){
   } catch (e) { if (e.name !== 'NotFoundError') toast(c.name + ' : ' + e.message); $(c.chip).className = 'chip'; }
 }
 document.querySelectorAll('[data-connect]').forEach(b => b.onclick = () => connect(b.dataset.connect));
+let knownDevs = {};
 async function autoReconnect(){
-  if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
-  try { const devs = await navigator.bluetooth.getDevices(), known = store.get('devs', {});
-    for (const kind of Object.keys(known)){ const d = devs.find(x => x.id === known[kind]); if (d) hookDevice(kind, d).catch(() => retry(kind, d, 1)); } } catch {}
+  if (!navigator.bluetooth || !navigator.bluetooth.getDevices){ $('#autoNote').textContent = 'Reconnexion automatique à l\'ouverture : activez dans Chrome le réglage chrome://flags/#enable-web-bluetooth-new-permissions-backend, puis redémarrez Chrome.'; return; }
+  try {
+    const devs = await navigator.bluetooth.getDevices(), known = store.get('devs', {});
+    for (const kind of Object.keys(known)){ const d = devs.find(x => x.id === known[kind]); if (d) knownDevs[kind] = d; }
+    if (!Object.keys(knownDevs).length && Object.keys(known).length) $('#autoNote').textContent = 'Capteurs mémorisés introuvables : appuyez une fois sur Connecter pour chacun.';
+    tryKnown();
+  } catch {}
 }
+let busy = {};
+function tryKnown(){
+  for (const kind of Object.keys(knownDevs)){
+    if (SENS_ON(kind) || busy[kind]) continue;
+    busy[kind] = true; hookDevice(kind, knownDevs[kind]).catch(() => { $(SENS[kind].chip).className = 'chip'; $(SENS[kind].st).textContent = 'en attente du capteur…'; }).finally(() => busy[kind] = false);
+  }
+}
+setInterval(tryKnown, 10000);   // la montre peut commencer à diffuser après l'ouverture de l'appli
+$('#reconnAll').onclick = () => { tryKnown(); toast('Recherche des capteurs mémorisés…'); };
 
 /* ================= radar ================= */
 const rtrack = $('#rtrack'), dotsEl = {}; let lastAlertIds = new Set();
-const SENS_ON = k => $(SENS[k].chip).classList.contains('on');
 function drawRadar(){
   const th = Date.now() - S.rdT < 3000 ? S.threats.filter(t => t.d > 0) : [];
   const ids = new Set(th.map(t => t.id));
