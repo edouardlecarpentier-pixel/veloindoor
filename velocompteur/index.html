@@ -48,10 +48,10 @@ button{font:inherit;cursor:pointer}
 .dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3)}.dots span.on{background:#fff}
 /* tuiles */
 .tile{background:var(--tile);border-radius:12px;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;min-width:0;overflow:hidden}
-.tile label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);font-weight:600;white-space:nowrap}
+.tile label{font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--mut);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile .v{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
-.tile b{font-weight:750;font-variant-numeric:tabular-nums;line-height:1.05;font-size:clamp(22px,5.2vh,40px)}
-.tile u{text-decoration:none;font-size:12px;color:var(--mut)}
+.tile b{font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05;font-size:clamp(26px,6vh,46px)}
+.tile u{text-decoration:none;font-size:14px;font-weight:600;color:var(--mut)}
 .pw b{color:var(--pw)}.cd b{color:var(--cd)}.hr b{color:var(--hr)}
 .zone{font-size:11px;font-weight:800;background:var(--hr);color:#2a0b12;border-radius:6px;padding:0 5px}
 /* carte (un seul élément, déplacé entre les écrans) */
@@ -61,10 +61,10 @@ button{font:inherit;cursor:pointer}
 #mapwrap{position:absolute;inset:0}
 #map{position:absolute;inset:0;background:#dfe3e8}
 #mapwrap.dark #map{background:#111}
-.mapbtns{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px;z-index:5}
+.mapbtns{position:absolute;right:8px;top:8px;display:flex;flex-flow:column wrap-reverse;align-content:flex-start;max-height:calc(100% - 16px);gap:4px;z-index:5}
 .mapbtns button{width:38px;height:38px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:15px;font-weight:800}
 .mapbtns button.on{background:var(--acc);color:#03202b}
-.navcard{position:absolute;left:8px;top:8px;z-index:5;background:#13324f;border-radius:12px;padding:6px 12px;display:none;align-items:center;gap:10px;box-shadow:0 3px 10px rgba(0,0,0,.4);max-width:calc(100% - 70px)}
+.navcard{position:absolute;left:8px;top:8px;z-index:5;background:#13324f;color:#fff;border-radius:12px;padding:6px 12px;display:none;align-items:center;gap:10px;box-shadow:0 3px 10px rgba(0,0,0,.4);max-width:calc(100% - 70px)}
 .navcard .arr{font-size:38px;line-height:1;font-weight:700}
 .navcard b{font-size:26px;display:block;font-variant-numeric:tabular-nums}
 .navcard span{font-size:12px;color:#bcd3e8;white-space:nowrap}
@@ -77,9 +77,10 @@ button{font:inherit;cursor:pointer}
 .grid .big{grid-column:1/3}.grid .big b{font-size:clamp(34px,10vh,72px)}
 .grid4{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr 1fr;gap:6px;padding:6px 6px 24px}
 .grid4 .tile b{font-size:clamp(28px,8vh,60px)}
-.overlay{position:absolute;left:8px;right:54px;bottom:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:6;pointer-events:none}
-.overlay .tile{background:rgba(10,16,22,.88)}
-.overlay .tile b{font-size:clamp(20px,5vh,32px)}
+.page.pmap{flex-direction:column}.page.pmap .slot{min-height:0}
+.overlay{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px 6px 22px}
+.overlay .tile{padding:4px 10px}
+.overlay .tile b{font-size:clamp(26px,6.5vh,46px)}
 /* pages réglages / son */
 .setup{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 8px 24px;overflow:auto}
 .setup.three{grid-template-columns:1.2fr 1fr 1fr}
@@ -106,8 +107,7 @@ button{font:inherit;cursor:pointer}
 .cfg input[type=text],.cfg input[type=tel],.cfg input[type=password],.cfg select{background:var(--input);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font:inherit;min-width:0}
 .cfg input.w{flex:1}
 .prog{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:4px}.prog i{display:block;height:100%;width:0;background:var(--acc)}
-#prof{position:absolute;left:8px;right:56px;bottom:22px;height:74px;width:calc(100% - 68px);z-index:4;border-radius:10px;background:rgba(10,16,22,.78);display:none;pointer-events:none}
-#mapwrap.full #prof{bottom:104px}
+#prof{position:absolute;left:8px;right:56px;bottom:10px;height:74px;width:calc(100% - 68px);z-index:4;border-radius:10px;background:rgba(10,16,22,.78);display:none;pointer-events:none}
 .climbcard{position:absolute;left:8px;top:84px;z-index:5;background:#5a3a0e;color:#fff;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700;display:none;max-width:calc(100% - 70px)}
 .climbcard.in{background:#8a2f12}
 .tile{position:relative}.tile.pw::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--zc,transparent)}
@@ -135,7 +135,7 @@ button{font:inherit;cursor:pointer}
 .wxstrip{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:4px}.wxstrip i{flex:1}
 .wxlab{display:flex;justify-content:space-between;font-size:10px;color:var(--mut)}
 #radTime{position:absolute;right:56px;top:40px;z-index:5;background:rgba(10,16,22,.85);color:#9fd4ff;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:700;display:none}
-#wxBadge{position:absolute;right:60px;top:8px;z-index:5;background:rgba(10,16,22,.85);color:#fff;border-radius:10px;padding:4px 9px;font-size:14px;font-weight:800;display:none}
+#wxBadge{position:absolute;right:56px;top:8px;z-index:5;background:rgba(10,16,22,.92);box-shadow:0 2px 6px rgba(0,0,0,.4);color:#fff;border-radius:10px;padding:4px 9px;font-size:14px;font-weight:800;display:none}
 @media (orientation:portrait){.wx{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
 body.eco .tile b{transition:none}
@@ -146,6 +146,8 @@ body.eco .tile b{transition:none}
   .grid4{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(6,1fr)}
   .setup,.setup.three{grid-template-columns:1fr}
   .overlay{grid-template-columns:repeat(2,1fr)}
+  .grid .big b{font-size:clamp(44px,9vh,80px)}
+  .grid .tile:not(.big) b,.grid4 .tile b,.overlay .tile b{font-size:clamp(26px,4.6vh,40px)}
 }
 </style>
 </head>
@@ -193,10 +195,10 @@ body.eco .tile b{transition:none}
       <div class="grid4" data-lay="p1"></div>
     </div>
     <!-- 2 · carte plein écran -->
-    <div class="page" data-name="Carte">
+    <div class="page pmap" data-name="Carte">
       <div class="slot mapfull" id="slot2">
-        <div class="overlay" data-lay="p2"></div>
       </div>
+      <div class="overlay" data-lay="p2"></div>
     </div>
     <!-- 3 · météo -->
     <div class="page" data-name="Météo">
@@ -477,7 +479,7 @@ try {
   map.on('touchstart', () => fly && stopFly()); map.on('mousedown', () => fly && stopFly());
   const el = document.createElement('div'); el.className = 'me dot';
   meMarker = new maplibregl.Marker({element:el, rotationAlignment:'map', pitchAlignment:'map'}).setLngLat([-0.33, 49.205]).addTo(map);
-  map.on('load', () => { applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); updateAhead(true); });
+  map.on('load', () => { const at = document.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show'); applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); updateAhead(true); });
 } catch (e) { toast('Carte indisponible : ' + e.message, 5000); }
 
 function applyMapOpts(){
@@ -1023,16 +1025,16 @@ function drawProfile(){
   if (i1 - i0 < 3) return;
   let lo = Infinity, hi = -Infinity; for (let i = i0; i <= i1; i++){ lo = Math.min(lo, S.rse[i]); hi = Math.max(hi, S.rse[i]); }
   if (hi - lo < 40){ const m = (hi + lo)/2; lo = m - 20; hi = m + 20; }
-  const top = 14, bot = H - 4, X = d => (d - from)/(to - from)*W, Y = e => bot - (e - lo)/(hi - lo)*(bot - top);
+  const top = 18, bot = H - 4, X = d => (d - from)/(to - from)*W, Y = e => bot - (e - lo)/(hi - lo)*(bot - top);
   for (let px = 0; px < W; px++){
     const i = Math.min(i1, i0 + Math.floor(px/W*(i1 - i0))), j = Math.min(S.rse.length - 1, i + 5);
     const gr = (S.rse[j] - S.rse[i])/Math.max(10, (j - i)*10)*100;
     g.fillStyle = gradeCol(gr); g.fillRect(px, Y(S.rse[i]), 1, bot - Y(S.rse[i]));
   }
   g.fillStyle = '#fff'; g.fillRect(X(a) - 1, top - 4, 2, bot - top + 4);
-  g.font = '600 11px system-ui'; g.fillStyle = '#e6eef5';
-  g.fillText(`${Math.round(hi)} m`, 4, 11); g.fillText(`${fmt((to - a)/1000, 0)} km`, W - 38, 11);
-  if (S.pos){ let up = 0; for (let i = S.aIdx + 1; i < S.rse.length; i++) if (S.rse[i] > S.rse[i - 1]) up += S.rse[i] - S.rse[i - 1]; g.fillText(`reste +${Math.round(up)} m`, 70, 11); }
+  g.font = '700 13px system-ui'; g.fillStyle = '#ffffff';
+  g.fillText(`${Math.round(hi)} m`, 6, 13); g.fillText(`${fmt((to - a)/1000, 0)} km`, W - 44, 13);
+  if (S.pos){ let up = 0; for (let i = S.aIdx + 1; i < S.rse.length; i++) if (S.rse[i] > S.rse[i - 1]) up += S.rse[i] - S.rse[i - 1]; g.fillText(`reste +${Math.round(up)} m`, 74, 13); }
 }
 $('#bProf').onclick = () => {
   if (!S.rse){ toast(S.rs ? 'Altitude du parcours indisponible' : 'Chargez un parcours GPX'); return; }
@@ -1321,7 +1323,7 @@ function estPower(now){
   EST.p = Math.max(0, Math.round(raw));
   const rider = S.pwBuf.length && now - S.pwT < 4000 ? S.pwBuf.reduce((x, y) => x + y.w, 0)/S.pwBuf.length : null;
   const ebike = $('#ebike').checked;
-  EST.motor = ebike && rider !== null ? (S.spd > 25.5 ? 0 : Math.max(0, Math.round(EST.p - rider))) : null;
+  EST.motor = ebike && rider !== null ? (S.spd > 25.5 ? 0 : Math.min(400, Math.max(0, Math.round(EST.p - rider)))) : null;   // moteur du Creo : quelques centaines de W au plus
   // auto-calibration : au-delà de 25 km/h le moteur du Creo est coupé, donc toute la puissance vient des pédales
   if (ebike && rider !== null && S.spd > 26.5 && S.spd < 45 && Math.abs(gr) < 0.02 && Math.abs(a) < 0.15 && rider > 60 && (pr + pa) > 40){
     const kWant = (rider*0.97 - pg - pk)/(pr + pa);
