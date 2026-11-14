@@ -65,7 +65,7 @@ button{font:inherit;cursor:pointer}
 .mapbtns button{width:38px;height:38px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:15px;font-weight:800}
 .mapbtns button.on{background:var(--acc);color:#03202b}
 .navcard{position:absolute;left:8px;top:8px;z-index:5;background:#13324f;color:#fff;border-radius:12px;padding:6px 12px;display:none;align-items:center;gap:10px;box-shadow:0 3px 10px rgba(0,0,0,.4);max-width:calc(100% - 70px)}
-.navcard .arr{font-size:38px;line-height:1;font-weight:700}
+.navcard .arr{font-size:38px;line-height:1;font-weight:700;transition:transform .4s;display:inline-block}
 .navcard b{font-size:26px;display:block;font-variant-numeric:tabular-nums}
 .navcard span{font-size:12px;color:#bcd3e8;white-space:nowrap}
 .navcard.soon{background:#1e6b4a}.navcard.off{background:#7a3a12}
@@ -239,6 +239,9 @@ body.eco .tile b{transition:none}
         <div class="card">
           <h3>Sortie et parcours</h3>
           <div class="cfg"><button class="btn p" id="gpxIn">Charger un parcours GPX</button><button class="btn" id="routeClear">Retirer le parcours</button><button class="btn" id="ventoPaste">📥 Importer depuis Vento</button><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden></div>
+          <div class="cfg"><label><input type="checkbox" id="rrOn" checked> Recalcul automatique si je quitte le parcours</label></div>
+          <div class="cfg">Itinéraire de retour <select id="rrProf"><option value="trekking" selected>Polyvalent (route + chemins)</option><option value="fastbike-lowtraffic">Route peu fréquentée</option><option value="fastbike-verylowtraffic">Le plus sûr (pistes, routes calmes)</option><option value="fastbike">Route rapide</option></select></div>
+          <div class="cfg"><label><input type="checkbox" id="courseUp" checked> Carte 2D orientée dans mon sens de marche</label></div>
           <div class="cfg"><button class="btn" id="gpxOut">Exporter la sortie (GPX pour Strava)</button><button class="btn d" id="reset">Effacer la sortie</button></div>
           <h3 style="margin-top:12px">Réglages</h3>
           <div class="cfg">FC max <input type="number" id="hrmax" min="120" max="220" value="185"> bpm</div>
@@ -456,6 +459,8 @@ const style = {
     dem:{type:'raster-dem', tiles:['vct://dem/{z}/{x}/{y}'], encoding:'terrarium', tileSize:256, maxzoom:14},
     hill:{type:'raster-dem', tiles:['vct://dem/{z}/{x}/{y}'], encoding:'terrarium', tileSize:256, maxzoom:14},
     route:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
+    plan:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
+    hdg:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
     track:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
     ahead:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
   },
@@ -466,11 +471,13 @@ const style = {
     {id:'esri', type:'raster', source:'esri', layout:{visibility:'none'}},
     {id:'ign', type:'raster', source:'ign', layout:{visibility:'none'}},
     {id:'hill', type:'hillshade', source:'hill', layout:{visibility:'none'}, paint:{'hillshade-exaggeration':0.35, 'hillshade-shadow-color':'#3a3a3a'}},
+    {id:'plan', type:'line', source:'plan', paint:{'line-color':'#8a96a3', 'line-width':5, 'line-opacity':.8, 'line-dasharray':[1.5, 1.5]}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'route-casing', type:'line', source:'route', paint:{'line-color':'#ffffff', 'line-width':9, 'line-opacity':.9}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'route', type:'line', source:'route', paint:{'line-color':'#2f7cf6', 'line-width':6}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'ahead-glow', type:'line', source:'ahead', paint:{'line-color':'#ffe14d', 'line-width':['interpolate',['linear'],['zoom'],14,10,18,26], 'line-opacity':.35, 'line-blur':6}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'ahead', type:'line', source:'ahead', paint:{'line-color':'#ffe14d', 'line-width':['interpolate',['linear'],['zoom'],14,4,18,10]}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'track', type:'line', source:'track', paint:{'line-color':'#ff5a36', 'line-width':4}, layout:{'line-cap':'round','line-join':'round'}},
+    {id:'hdg', type:'line', source:'hdg', paint:{'line-color':'#ff5a36', 'line-width':5, 'line-dasharray':[1, 1.2], 'line-opacity':.95}, layout:{'line-cap':'round'}},
   ],
 };
 const styleReady = () => !!(map && map.style && map.style._loaded);
@@ -482,7 +489,7 @@ try {
   map.on('touchstart', () => fly && stopFly()); map.on('mousedown', () => fly && stopFly());
   const el = document.createElement('div'); el.className = 'me dot';
   meMarker = new maplibregl.Marker({element:el, rotationAlignment:'map', pitchAlignment:'map'}).setLngLat([-0.33, 49.205]).addTo(map);
-  map.on('load', () => { const at = document.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show'); applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); updateAhead(true); });
+  map.on('load', () => { setTimeout(planLayer, 0); const at = document.querySelector('.maplibregl-ctrl-attrib'); if (at) at.classList.remove('maplibregl-compact-show'); applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); updateAhead(true); });
 } catch (e) { toast('Carte indisponible : ' + e.message, 5000); }
 
 function applyMapOpts(){
@@ -499,8 +506,8 @@ function applyMapOpts(){
   try { map.setTerrain(d3 ? {source:'dem', exaggeration:v === 2 ? 1.2 : 1.4} : null); } catch {}
   $('#mapwrap').classList.toggle('dark', dark);
   $('#b3d').classList.toggle('on', d3); $('#b3d').textContent = ['2D','3D','👁'][v]; $('#b3d').title = ['Vue 2D','Vue 3D','Vue pilote (immersive)'][v]; $('#bDark').classList.toggle('on', dark);
-  meMarker && (meMarker.getElement().className = d3 ? 'me' : 'me dot');
-  if (!d3) map.easeTo({pitch:0, bearing:0, duration:600});
+  meMarker && (meMarker.getElement().className = meCls());
+  if (!d3) map.easeTo({pitch:0, bearing:$('#courseUp').checked && S.heading !== null ? S.heading : 0, duration:600});
   else follow = true;
   lastCam = 0;
 }
@@ -516,7 +523,7 @@ function moveCamera(force){
   const v = opt.eco ? 0 : opt.view, h = map.getContainer().clientHeight;
   if (v === 2) map.easeTo({center:[S.pos.lon, S.pos.lat], zoom:17.6, pitch:78, bearing:aheadBearing() ?? S.heading ?? map.getBearing(), duration:900, offset:[0, h*0.32]});
   else if (v === 1) map.easeTo({center:[S.pos.lon, S.pos.lat], zoom:Math.max(map.getZoom(), 16), pitch:62, bearing:S.heading ?? map.getBearing(), duration:900, offset:[0, h*0.22]});
-  else map.easeTo({center:[S.pos.lon, S.pos.lat], duration:opt.eco ? 0 : 600});
+  else map.easeTo({center:[S.pos.lon, S.pos.lat], bearing:$('#courseUp').checked && S.heading !== null && S.spd > 4 ? S.heading : ($('#courseUp').checked ? map.getBearing() : 0), duration:opt.eco ? 0 : 600});
 }
 // cap vers un point ~40 m plus loin sur le parcours : la caméra regarde là où l'on va
 function aheadBearing(){
@@ -589,7 +596,8 @@ function onFix(lat, lon, ele, spdMs, t, head){
     updateTrack();
   }
   lastFix = {lat, lon, t}; S.pos = p; S.ele = ele;
-  if (meMarker){ meMarker.setLngLat([lon, lat]); if (S.heading !== null) meMarker.setRotation(S.heading); }
+  if (meMarker){ meMarker.setLngLat([lon, lat]); if (S.heading !== null) meMarker.setRotation(S.heading); const c = meCls(); if (meMarker.getElement().className !== c) meMarker.getElement().className = c; }
+  headingLine();
   moveCamera(false);
   navUpdate();
   $('#cGPS').className = 'chip on';
@@ -1250,7 +1258,7 @@ function dirAdviceToast(){
 }
 function reverseRoute(){
   if (!S.route) return;
-  const pts = S.route.slice().reverse(); setRoute(pts); store.set('route', pts); RW.key = ''; routeWxFetch(true);
+  const pts = (S.plan || S.route).slice().reverse(); setPlan(pts); RW.key = ''; routeWxFetch(true);
   toast('Parcours inversé'); wxRender();
 }
 function etaHtml(){
@@ -1348,7 +1356,7 @@ function ventoApply(p){
   if (!p || p.v !== 1 || !Array.isArray(p.route)) throw new Error('données Vento non reconnues');
   const pts = p.route.filter(r => Array.isArray(r) && isFinite(r[0]) && isFinite(r[1])).map(r => ({lat:+r[0], lon:+r[1], ele:r[2] == null ? null : +r[2]}));
   if (pts.length < 2) throw new Error('parcours vide');
-  setRoute(pts); store.set('route', pts); store.set('routeName', p.name || '');
+  setPlan(pts); store.set('routeName', p.name || '');
   setPois((p.pois || []).filter(x => Array.isArray(x) && isFinite(x[0]) && isFinite(x[1])).map(x => ({lat:+x[0], lon:+x[1], n:String(x[2] || 'Point'), e:String(x[3] || '📍')})));
   if (p.spd > 8 && p.spd < 45){ $('#etaSpd').value = Math.round(p.spd); store.set('etaSpd', Math.round(p.spd)); }
   RW.key = ''; routeWxFetch(true); $('#offSt').textContent = offEstimate();
@@ -1400,6 +1408,60 @@ function gpxPois(doc){
 if (/[#&]([zd])=/.test(location.hash)){ const h = location.hash; history.replaceState(null, '', location.pathname); setTimeout(() => ventoFromUrl(h), 600); }
 if (NATIVE && Native.App) Native.App.getLaunchUrl().then(r => { if (r && r.url && /\/import/.test(r.url)) setTimeout(() => ventoFromUrl(r.url), 600); }).catch(() => {});
 
+/* ================= parcours prévu, recalcul d'itinéraire (BRouter) et cap ================= */
+S.plan = null; S.planRs = null; S.planD = 0; S.join = {Ld:0, Jd:0, said:false};
+['rrOn','courseUp'].forEach(id => { const el = $('#' + id); el.checked = store.get(id, el.checked); el.onchange = () => { store.set(id, el.checked); lastCam = 0; moveCamera(true); }; });
+$('#rrProf').value = store.get('rrProf', $('#rrProf').value); $('#rrProf').onchange = e => store.set('rrProf', e.target.value);
+function setPlan(pts){
+  S.plan = pts; setRoute(pts); S.planRs = S.rs; S.planD = 0; S.join = {Ld:0, Jd:0, said:false};
+  store.set('route', pts); planLayer();
+}
+function planLayer(){
+  if (!styleReady()) return;
+  const on = S.plan && S.join.Ld > 0;
+  map.getSource('plan').setData(on ? {type:'Feature', geometry:{type:'LineString', coordinates:S.plan.map(p => [p.lon, p.lat])}} : {type:'FeatureCollection', features:[]});
+}
+// avancement sur le parcours prévu (même pendant un détour recalculé)
+const planProgress = () => S.join.Ld > 0 ? (S.along < S.join.Ld ? S.join.Jd : S.join.Jd + (S.along - S.join.Ld)) : S.along;
+const RR = {busy:false, last:0};
+async function reroute(){
+  if (!$('#rrOn').checked || RR.busy || !S.planRs || !S.pos || Date.now() - RR.last < 20000) return;
+  if (!navigator.onLine){ RR.last = Date.now(); return; }
+  RR.busy = true; RR.last = Date.now();
+  const P = S.planRs, i0 = Math.min(P.length - 1, Math.round(S.planD/10));
+  let bi = -1, bs = Infinity;   // point de retour : proche de moi, en évitant de sauter trop loin le parcours
+  for (let i = i0; i < Math.min(P.length, i0 + 500); i += 2){ const sc = hav(S.pos, P[i]) + 1.0*(P[i].d - P[i0].d); if (sc < bs){ bs = sc; bi = i; } }   // sauter du parcours coûte autant que le rouler
+  if (bi < 0){ RR.busy = false; return; }
+  const J = Math.min(P.length - 1, bi + 15), tgt = P[J];
+  say('Recalcul de l\'itinéraire'); navUpdate();
+  try {
+    const url = `https://brouter.de/brouter?lonlats=${S.pos.lon.toFixed(6)},${S.pos.lat.toFixed(6)}|${tgt.lon.toFixed(6)},${tgt.lat.toFixed(6)}&profile=${encodeURIComponent($('#rrProf').value)}&alternativeidx=0&format=geojson`;
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 20000);
+    const j = await (await fetch(url, {signal:ac.signal})).json(); clearTimeout(tm);
+    const c = j.features && j.features[0] && j.features[0].geometry.coordinates;
+    if (!c || c.length < 2) throw new Error('itinéraire vide');
+    if (!S.off){ RR.busy = false; return; }                       // revenu sur le parcours entre-temps
+    const det = c.map(p => ({lat:p[1], lon:p[0], ele:Number.isFinite(p[2]) ? p[2] : null}));
+    let Ld = 0; for (let k = 1; k < det.length; k++) Ld += hav(det[k - 1], det[k]);
+    const rest = P.slice(J + 1).map(p => ({lat:p.lat, lon:p.lon, ele:p.ele ?? null}));
+    setRoute(det.concat(rest)); S.join = {Ld, Jd:P[J].d, said:false}; planLayer();
+    say(`Nouvel itinéraire : retour sur le parcours dans ${fmtDist(Ld).replace(',', ' virgule ')}`);
+    toast(`↺ Itinéraire recalculé : retour sur le parcours dans ${fmtDist(Ld)}`, 5000);
+    RR.busy = false; navUpdate(); moveCamera(true);
+  } catch (e) { toast('Recalcul impossible (réseau ?) : suivez la flèche vers le parcours', 5000); }
+  RR.busy = false;
+}
+// trait de cap : montre toujours où va le vélo, même hors du parcours
+function headingLine(){
+  if (!styleReady()) return;
+  const src = map.getSource('hdg'); if (!src) return;
+  if (!S.pos || S.heading === null || S.spd < 3){ src.setData({type:'FeatureCollection', features:[]}); return; }
+  const d = Math.max(60, Math.min(160, S.spd*4)), h = S.heading*R;
+  const lat2 = S.pos.lat + d*Math.cos(h)/111320, lon2 = S.pos.lon + d*Math.sin(h)/(111320*Math.cos(S.pos.lat*R));
+  src.setData({type:'Feature', geometry:{type:'LineString', coordinates:[[S.pos.lon, S.pos.lat], [lon2, lat2]]}});
+}
+const meCls = () => S.heading === null ? 'me dot' : 'me';
+
 /* ================= parcours et guidage virage par virage ================= */
 $('#gpxIn').onclick = () => $('#gpxFile').click();
 $('#gpxFile').onchange = async e => {
@@ -1407,12 +1469,12 @@ $('#gpxFile').onchange = async e => {
   const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
   const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => { const e = n.querySelector('ele'); return {lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon'), ele:e ? +e.textContent : null}; }).filter(p => isFinite(p.lat) && isFinite(p.lon));
   if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
-  setRoute(pts); store.set('route', pts); setPois(gpxPois(doc)); RW.key = ''; routeWxFetch(true);
+  setPlan(pts); setPois(gpxPois(doc)); RW.key = ''; routeWxFetch(true);
   toast(`Parcours chargé : ${fmt(S.routeTotal/1000, 1)} km, ${S.turns.length} changements de direction`, 4000);
   $('#offSt').textContent = offEstimate();
   e.target.value = '';
 };
-$('#routeClear').onclick = () => { setPois([]); S.route = S.rs = S.rse = null; S.turns = []; S.climbs = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
+$('#routeClear').onclick = () => { setPois([]); S.plan = S.planRs = null; S.join = {Ld:0, Jd:0, said:false}; planLayer(); S.route = S.rs = S.rse = null; S.turns = []; S.climbs = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
 function setRoute(pts){
   S.route = pts;
   // ré-échantillonnage tous les 10 m
@@ -1462,17 +1524,25 @@ function navUpdate(){
   let best = S.aIdx, bd = Infinity;
   const from = Math.max(0, S.aIdx - 30), to = Math.min(S.rs.length - 1, S.aIdx + 300);
   for (let i = from; i <= to; i++){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } }
-  if (bd > 120){ for (let i = 0; i < S.rs.length; i += 2){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } } }
+  if (bd > 120){ let fb = Infinity, fi = best; for (let i = 0; i < S.rs.length; i += 2){ const d = hav(S.pos, S.rs[i]); if (d < fb){ fb = d; fi = i; } } if (fb < 50){ best = fi; bd = fb; } }   // saut ailleurs sur le parcours seulement si l'on est vraiment dessus (boucles)
   S.aIdx = best; S.along = S.rs[best].d; if (!fly) updateAhead();
   climbUpdate(); poiUpdate();
   const now = Date.now();
-  if (bd > 50){ if (!S.offT) S.offT = now; if (!S.off && now - S.offT > 8000){ S.off = true; say('Vous avez quitté le parcours'); } }
+  if (bd > 50){ if (!S.offT) S.offT = now; if (!S.off && now - S.offT > 8000){ S.off = true; say('Vous avez quitté le parcours'); reroute(); } }
   else { if (S.off && bd < 30){ S.off = false; say('Parcours retrouvé'); } if (bd < 30) S.offT = 0; }
+  $('#navArr').style.transform = '';
   nav.style.display = 'flex';
   if (S.off){
-    nav.className = 'navcard off'; $('#navArr').textContent = '⚠'; $('#navDist').textContent = fmtDist(bd); $('#navTxt').textContent = 'Hors parcours · rejoignez la ligne bleue';
+    reroute();
+    // flèche vers le point de retour, par rapport à mon sens de marche
+    const tgt = S.rs[Math.min(S.rs.length - 1, best + 5)], b = brg(S.pos, tgt), rel = S.heading === null ? b : angDiff(S.heading, b);
+    nav.className = 'navcard off'; $('#navArr').textContent = '↑'; $('#navArr').style.transform = `rotate(${Math.round(rel)}deg)`;
+    $('#navDist').textContent = fmtDist(bd);
+    $('#navTxt').textContent = RR.busy ? 'Recalcul de l\'itinéraire…' : ($('#rrOn').checked && navigator.onLine ? 'Hors parcours · nouvel itinéraire bientôt' : 'Hors parcours · suivez la flèche');
     setK('navshort', 'Hors parcours'); return;
   }
+  if (bd < 30) S.planD = planProgress();
+  if (S.join.Ld > 0 && !S.join.said && S.along > S.join.Ld + 20){ S.join.said = true; say('Vous avez rejoint le parcours prévu'); }
   const next = S.turns.find(t => t.d > S.along + 5);
   const left = S.routeTotal - S.along;
   if (!next){
@@ -1491,7 +1561,7 @@ function navUpdate(){
   else if (dist <= 110 && dist > 35 && !next.said.near){ next.said.near = 1; next.said.far = 1; say(`Dans ${Math.round(dist/10)*10} mètres, ${ti.say}`); }
   else if (dist <= 30 && !next.said.now){ next.said.now = 1; next.said.near = 1; next.said.far = 1; say(ti.say.charAt(0).toUpperCase() + ti.say.slice(1) + ' maintenant'); }
 }
-const savedRoute = store.get('route', null); if (savedRoute) setRoute(savedRoute);
+const savedRoute = store.get('route', null); if (savedRoute) setPlan(savedRoute);
 
 /* ================= son : voix, bips, lecteur ================= */
 let actx = null;
