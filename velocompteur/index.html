@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<title>VéloCompteur</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#0b0f14;--tile:#141c25;--mut:#93a4b6;--txt:#fff;--ok:#3ee08f;--warn:#ffb020;--red:#ff4d4d;--acc:#38d0ff;--pw:#ffcf4a;--cd:#7cc7ff;--hr:#ff6b8a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+/* barre d'état */
+.sbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:4px 10px;background:#070a0e;font-size:13px;font-weight:600;color:#cfd8e2}
+.sbar .chips{display:flex;gap:5px;flex:1;overflow:hidden}
+.chip{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:#18212b;white-space:nowrap;font-size:12px}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:#55606b}
+.chip.on::before{background:var(--ok)}.chip.wait::before{background:var(--warn)}
+#rec{border:none;border-radius:999px;padding:5px 12px;font:inherit;font-weight:700;background:var(--ok);color:#03200f}
+#rec.run{background:var(--red);color:#fff}#rec.pause{background:var(--warn);color:#201400}
+/* zone principale */
+.main{flex:1;position:relative;min-height:0}
+.page{position:absolute;top:0;bottom:0;left:0;right:46px;display:none}
+.page.on{display:flex}
+.radar{position:absolute;top:0;bottom:0;right:0;width:46px;background:#0d141b;display:flex;justify-content:center;padding:8px 0}
+.rtrack{position:relative;width:24px;border-radius:12px;background:linear-gradient(#1b2a36,#101a22);overflow:hidden}
+.rtrack.alert{background:linear-gradient(#5a1b1b,#2a1012)}
+.rme{position:absolute;top:4px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:#fff}
+.rdot{position:absolute;left:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--warn);transition:top .25s linear}
+.rdot.fast{background:var(--red)}
+.rnone{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:9px;color:var(--mut)}
+.main.alert::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 5px rgba(255,77,77,.85);pointer-events:none;z-index:900}
+#banner{flex:1;text-align:center;background:var(--red);color:#fff;font-weight:800;font-size:16px;padding:3px 14px;border-radius:999px;display:none;white-space:nowrap}
+.sbar.alert .chips{display:none}
+.dots{position:absolute;left:calc(50% - 23px);bottom:6px;transform:translateX(-50%);display:flex;gap:7px;z-index:950}
+.dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3)}.dots span.on{background:#fff}
+/* tuiles */
+.tile{background:var(--tile);border-radius:12px;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;min-width:0;overflow:hidden}
+.tile label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);font-weight:600;white-space:nowrap}
+.tile .v{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
+.tile b{font-weight:750;font-variant-numeric:tabular-nums;line-height:1.05;font-size:clamp(22px,5.2vh,40px)}
+.tile u{text-decoration:none;font-size:12px;color:var(--mut)}
+.pw b{color:var(--pw)}.cd b{color:var(--cd)}.hr b{color:var(--hr)}
+.zone{font-size:11px;font-weight:800;background:var(--hr);color:#2a0b12;border-radius:6px;padding:0 5px}
+/* page 1 : carte + données */
+.mapbox{position:relative;flex:0 0 55%;min-width:0}
+.mapbox .map{position:absolute;inset:0}
+.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:6px;padding:6px 6px 24px}
+.grid .big{grid-column:1/3}.grid .big b{font-size:clamp(34px,10vh,72px)}
+/* page 2 : données plein écran */
+.grid4{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr 1fr;gap:6px;padding:6px 6px 24px}
+.grid4 .tile b{font-size:clamp(28px,8vh,60px)}
+/* page 3 : carte */
+.mapfull{position:relative;flex:1}
+.mapfull .map{position:absolute;inset:0}
+.overlay{position:absolute;left:8px;right:8px;bottom:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:800;pointer-events:none}
+.overlay .tile{background:rgba(10,16,22,.88)}
+.overlay .tile b{font-size:clamp(20px,5vh,32px)}
+.mapbtn{position:absolute;right:8px;z-index:800;width:42px;height:42px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:20px;font-weight:700}
+/* page 4 : capteurs */
+.setup{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 8px 24px;overflow:auto}
+.card{background:var(--tile);border-radius:12px;padding:10px 12px}
+.card h3{margin:0 0 8px;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1f2a35;font-size:14px}
+.srow:last-child{border-bottom:none}
+.srow .n{flex:1;min-width:0}.srow .n small{display:block;color:var(--mut);font-size:11px}
+.srow .bat{font-size:12px;color:var(--mut);width:42px;text-align:right}
+.btn{border:none;border-radius:9px;padding:8px 12px;font:inherit;font-size:13px;font-weight:650;background:#24323f;color:#fff}
+.btn.p{background:var(--acc);color:#03202b}
+.btn.d{background:#3a1416;color:#ffb3b3}
+.cfg{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px}
+.cfg input[type=number]{width:70px;background:#0b1118;color:#fff;border:1px solid #2a3846;border-radius:7px;padding:5px;font:inherit}
+.note{font-size:11.5px;color:var(--mut);line-height:1.4;margin-top:6px}
+.leaflet-container{background:#dfe3e8}
+.me-icon{width:22px;height:22px;border-radius:50%;background:#ff5a36;border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.5)}
+#toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
+@media (orientation:portrait){
+  .page.on{flex-direction:column}
+  .mapbox{flex:0 0 45%}
+  .grid4{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(6,1fr)}
+  .setup{grid-template-columns:1fr}
+  .overlay{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sbar">
+    <span id="clock">--:--</span>
+    <div class="chips">
+      <span class="chip" id="cGPS">GPS</span>
+      <span class="chip" id="cPW">Pédales</span>
+      <span class="chip" id="cHR">Montre FC</span>
+      <span class="chip" id="cRD">Varia</span>
+      <span class="chip" id="cDEMO" style="display:none">DÉMO</span>
+    </div>
+    <div id="banner"></div>
+    <span id="pbat"></span>
+    <button id="rec">▶ Démarrer</button>
+  </div>
+  <div class="main" id="main">
+    <!-- 1 · carte + données -->
+    <div class="page on" data-name="Carte + données">
+      <div class="mapbox"><div class="map" id="map1"></div></div>
+      <div class="grid">
+        <div class="tile big"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
+        <div class="tile pw"><label>Puissance 3 s</label><div class="v"><b data-k="pw3">--</b><u>W</u></div></div>
+        <div class="tile cd"><label>Cadence</label><div class="v"><b data-k="cad">--</b><u>tr/min</u></div></div>
+        <div class="tile hr"><label>Fréq. cardiaque</label><div class="v"><b data-k="hr">--</b><u>bpm</u><span class="zone" data-k="zone">-</span></div></div>
+        <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
+        <div class="tile"><label>Temps</label><div class="v"><b data-k="time">0:00:00</b></div></div>
+        <div class="tile"><label>Dénivelé +</label><div class="v"><b data-k="dp">0</b><u>m</u></div></div>
+      </div>
+    </div>
+    <!-- 2 · données plein écran -->
+    <div class="page" data-name="Données">
+      <div class="grid4">
+        <div class="tile"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
+        <div class="tile pw"><label>Puissance 3 s</label><div class="v"><b data-k="pw3">--</b><u>W</u></div></div>
+        <div class="tile hr"><label>Fréq. cardiaque</label><div class="v"><b data-k="hr">--</b><u>bpm</u></div></div>
+        <div class="tile cd"><label>Cadence</label><div class="v"><b data-k="cad">--</b><u>tr/min</u></div></div>
+        <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
+        <div class="tile"><label>Temps</label><div class="v"><b data-k="time">0:00:00</b></div></div>
+        <div class="tile"><label>Vitesse moy.</label><div class="v"><b data-k="avg">0,0</b><u>km/h</u></div></div>
+        <div class="tile pw"><label>Puissance moy.</label><div class="v"><b data-k="pwavg">--</b><u>W</u></div></div>
+        <div class="tile"><label>Dénivelé +</label><div class="v"><b data-k="dp">0</b><u>m</u></div></div>
+        <div class="tile"><label>Pente</label><div class="v"><b data-k="grade">0 %</b></div></div>
+        <div class="tile"><label>Vitesse max</label><div class="v"><b data-k="vmax">0,0</b><u>km/h</u></div></div>
+        <div class="tile hr"><label>FC moy.</label><div class="v"><b data-k="hravg">--</b><u>bpm</u></div></div>
+      </div>
+    </div>
+    <!-- 3 · carte plein écran -->
+    <div class="page" data-name="Carte">
+      <div class="mapfull">
+        <div class="map" id="map2"></div>
+        <button class="mapbtn" style="top:8px" id="recenter" title="Recentrer">◎</button>
+        <div class="overlay">
+          <div class="tile"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
+          <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
+          <div class="tile"><label>Reste (parcours)</label><div class="v"><b data-k="left">--</b><u>km</u></div></div>
+          <div class="tile hr"><label>FC</label><div class="v"><b data-k="hr">--</b><u>bpm</u></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- 4 · capteurs et réglages -->
+    <div class="page" data-name="Capteurs et réglages">
+      <div class="setup">
+        <div class="card">
+          <h3>Capteurs Bluetooth</h3>
+          <div class="srow"><div class="n">Pédales Garmin Rally<small id="sPW">non connecté · puissance + cadence</small></div><span class="bat" id="bPW"></span><button class="btn p" data-connect="pw">Connecter</button></div>
+          <div class="srow"><div class="n">Montre (FC)<small id="sHR">non connecté · diffusion FC à activer sur la montre</small></div><span class="bat" id="bHR"></span><button class="btn p" data-connect="hr">Connecter</button></div>
+          <div class="srow"><div class="n">Garmin Varia RTL515<small id="sRD">non connecté · radar</small></div><span class="bat" id="bRD"></span><button class="btn p" data-connect="rd">Connecter</button></div>
+          <div class="note">Appairez une seule fois chaque capteur : l'appli tente ensuite de les reconnecter automatiquement à l'ouverture. Rally : activer les « connexions ouvertes » dans Garmin Connect. Varia : l'éloigner de l'Edge pendant l'appairage.</div>
+        </div>
+        <div class="card">
+          <h3>Sortie</h3>
+          <div class="cfg"><button class="btn" id="gpxIn">Charger un parcours GPX</button><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden></div>
+          <div class="cfg"><button class="btn p" id="gpxOut">Exporter la sortie (GPX pour Strava)</button></div>
+          <div class="cfg"><button class="btn d" id="reset">Effacer la sortie</button></div>
+          <h3 style="margin-top:12px">Réglages</h3>
+          <div class="cfg">FC max <input type="number" id="hrmax" min="120" max="220" value="185"> bpm</div>
+          <div class="cfg"><label><input type="checkbox" id="autopause" checked> Pause auto à l'arrêt</label></div>
+          <div class="cfg"><label><input type="checkbox" id="sound" checked> Bip radar</label></div>
+          <div class="cfg"><button class="btn" id="fs">Plein écran paysage</button> <button class="btn" id="demo">Mode démo</button></div>
+          <div class="note">Changer d'écran : balayer les zones de données, ou télécommande Bluetooth (touches Entrée, Espace, flèches, Page suivante). Le mode démo simule GPS, capteurs et radar pour tester sans rouler.</div>
+        </div>
+      </div>
+    </div>
+    <div class="radar"><div class="rtrack" id="rtrack"><div class="rme"></div><div class="rnone" id="rnone">—</div></div></div>
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ================= utilitaires ================= */
+const $ = s => document.querySelector(s);
+const fmt = (n, k) => (isFinite(n) ? n : 0).toFixed(k).replace('.', ',');
+const setK = (k, v) => document.querySelectorAll(`[data-k="${k}"]`).forEach(e => { if (e.textContent !== v) e.textContent = v; });
+function toast(m, ms = 2600){ const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', ms); }
+const hav = (a, b) => { const R = 6371000, r = Math.PI/180, dLa = (b.lat-a.lat)*r, dLo = (b.lon-a.lon)*r;
+  const x = Math.sin(dLa/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(x)); };
+const store = { get(k, d){ try { const v = localStorage.getItem('vc_' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v){ try { localStorage.setItem('vc_' + k, JSON.stringify(v)); } catch {} } };
+
+/* ================= état ================= */
+const S = {
+  rec:'stop',               // stop | run | pause
+  pts:store.get('pts', []), // points enregistrés {t,lat,lon,ele,hr,cad,pw,spd}
+  dist:store.get('dist', 0), moving:store.get('moving', 0), dp:store.get('dp', 0), vmax:store.get('vmax', 0),
+  pwSum:store.get('pwSum', 0), pwN:store.get('pwN', 0), hrSum:store.get('hrSum', 0), hrN:store.get('hrN', 0),
+  pos:null, spd:0, ele:null, eleRef:null, grade:0, gradeBuf:[],
+  hr:null, hrT:0, pw:null, pwT:0, pwBuf:[], cad:null, cadT:0, crank:null,
+  threats:[], rdT:0, demo:false,
+  route:null, routeCum:null,
+};
+if (S.pts.length) S.rec = 'pause';
+
+/* ================= écrans ================= */
+const pages = [...document.querySelectorAll('.page')];
+const dots = $('#dots'); dots.innerHTML = pages.map(() => '<span></span>').join('');
+let page = 0;
+function setPage(i){
+  page = (i + pages.length) % pages.length;
+  pages.forEach((p, k) => p.classList.toggle('on', k === page));
+  [...dots.children].forEach((d, k) => d.classList.toggle('on', k === page));
+  setTimeout(() => { map1.invalidateSize(); map2.invalidateSize(); }, 50);
+}
+// balayage sur les zones de données (pas sur la carte)
+let sx = null;
+document.querySelectorAll('.grid,.grid4,.setup,.radar').forEach(el => {
+  el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setPage(page + (dx < 0 ? 1 : -1)); sx = null; });
+});
+// télécommande Bluetooth / clavier
+document.addEventListener('keydown', e => {
+  const next = ['Enter',' ','ArrowRight','ArrowDown','PageDown','MediaTrackNext','AudioVolumeUp'];
+  const prev = ['ArrowLeft','ArrowUp','PageUp','MediaTrackPrevious','AudioVolumeDown'];
+  if (e.target.tagName === 'INPUT') return;
+  if (next.includes(e.key)){ e.preventDefault(); setPage(page + 1); }
+  else if (prev.includes(e.key)){ e.preventDefault(); setPage(page - 1); }
+});
+
+/* ================= cartes ================= */
+const tileUrl = 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png';
+const attrib = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · CyclOSM';
+function mkMap(id, zoom){
+  const m = L.map(id, {zoomControl:false, attributionControl:true}).setView([49.205, -0.33], zoom);
+  L.tileLayer(tileUrl, {maxZoom:19, attribution:attrib, subdomains:'abc'}).addTo(m);
+  L.control.zoom({position:'topleft'}).addTo(m);
+  m._follow = true; m.on('dragstart', () => m._follow = false);
+  return m;
+}
+const map1 = mkMap('map1', 16), map2 = mkMap('map2', 15);
+const meIcon = L.divIcon({className:'', html:'<div class="me-icon"></div>', iconSize:[22,22], iconAnchor:[11,11]});
+const me1 = L.marker([49.205,-0.33], {icon:meIcon}).addTo(map1), me2 = L.marker([49.205,-0.33], {icon:meIcon}).addTo(map2);
+const trk1 = L.polyline([], {color:'#ff5a36', weight:4}).addTo(map1), trk2 = L.polyline([], {color:'#ff5a36', weight:4}).addTo(map2);
+let rte1 = null, rte2 = null;
+trk1.setLatLngs(S.pts.map(p => [p.lat, p.lon])); trk2.setLatLngs(trk1.getLatLngs());
+$('#recenter').onclick = () => { map1._follow = map2._follow = true; if (S.pos){ map1.panTo([S.pos.lat, S.pos.lon]); map2.panTo([S.pos.lat, S.pos.lon]); } };
+
+/* ================= GPS ================= */
+let lastFix = null;
+function onFix(lat, lon, ele, spdMs, t){
+  const p = {lat, lon};
+  let spd = spdMs;
+  if ((spd === null || isNaN(spd)) && lastFix){ const dt = (t - lastFix.t)/1000; spd = dt > 0 ? hav(lastFix, p)/dt : 0; }
+  S.spd = Math.max(0, (spd || 0) * 3.6);
+  if (S.rec === 'run' && lastFix){
+    const d = hav(lastFix, p), dt = (t - lastFix.t)/1000;
+    const moving = !$('#autopause').checked || S.spd > 2.5;
+    if (d < 200 && moving){ S.dist += d; S.moving += dt; S.vmax = Math.max(S.vmax, S.spd); }
+    if (ele !== null){
+      if (S.eleRef === null) S.eleRef = ele;
+      if (ele - S.eleRef > 3){ S.dp += ele - S.eleRef; S.eleRef = ele; } else if (S.eleRef - ele > 3) S.eleRef = ele;
+      S.gradeBuf.push({d:S.dist, e:ele}); while (S.gradeBuf.length > 2 && S.dist - S.gradeBuf[0].d > 60) S.gradeBuf.shift();
+      const g0 = S.gradeBuf[0], dd = S.dist - g0.d; if (dd > 25) S.grade = (ele - g0.e)/dd*100;
+    }
+    const pt = {t, lat, lon, ele, hr:S.hr, cad:S.cad, pw:S.pw, spd:+S.spd.toFixed(1)};
+    S.pts.push(pt); trk1.addLatLng([lat, lon]); trk2.addLatLng([lat, lon]);
+    if (S.pw !== null){ S.pwSum += S.pw; S.pwN++; } if (S.hr !== null){ S.hrSum += S.hr; S.hrN++; }
+  }
+  lastFix = {lat, lon, t}; S.pos = p; S.ele = ele;
+  me1.setLatLng([lat, lon]); me2.setLatLng([lat, lon]);
+  if (map1._follow) map1.panTo([lat, lon], {animate:false}); if (map2._follow) map2.panTo([lat, lon], {animate:false});
+  $('#cGPS').className = 'chip on';
+}
+let gpsWatch = null;
+function startGPS(){
+  if (!('geolocation' in navigator)){ toast('GPS indisponible'); return; }
+  $('#cGPS').className = 'chip wait';
+  gpsWatch = navigator.geolocation.watchPosition(
+    p => { if (!S.demo) onFix(p.coords.latitude, p.coords.longitude, p.coords.altitude, p.coords.speed, p.timestamp); },
+    e => { $('#cGPS').className = 'chip'; toast('GPS : ' + e.message); },
+    {enableHighAccuracy:true, maximumAge:0, timeout:20000});
+}
+
+/* ================= Bluetooth ================= */
+const RADAR_SVC = '6a4e3200-667b-11e3-949a-0800200c9a66', RADAR_CHR = '6a4e3203-667b-11e3-949a-0800200c9a66';
+const SENS = {
+  pw:{svc:'cycling_power', chr:'cycling_power_measurement', chip:'#cPW', st:'#sPW', bat:'#bPW', name:'Pédales'},
+  hr:{svc:'heart_rate', chr:'heart_rate_measurement', chip:'#cHR', st:'#sHR', bat:'#bHR', name:'Montre FC'},
+  rd:{svc:RADAR_SVC, chr:RADAR_CHR, chip:'#cRD', st:'#sRD', bat:'#bRD', name:'Varia'},
+};
+function parse(kind, dv){
+  const now = Date.now();
+  if (kind === 'hr'){
+    const f = dv.getUint8(0); S.hr = (f & 1) ? dv.getUint16(1, true) : dv.getUint8(1); S.hrT = now;
+  } else if (kind === 'pw'){
+    const f = dv.getUint16(0, true); const w = dv.getInt16(2, true); let o = 4;
+    S.pw = Math.max(0, w); S.pwT = now; S.pwBuf.push({t:now, w:S.pw});
+    if (f & 0x01) o += 1; if (f & 0x04) o += 2; if (f & 0x10) o += 6;
+    if ((f & 0x20) && dv.byteLength >= o + 4){
+      const rev = dv.getUint16(o, true), et = dv.getUint16(o + 2, true);
+      if (S.crank){
+        const dr = (rev - S.crank.rev + 65536) % 65536, dt = ((et - S.crank.et + 65536) % 65536)/1024;
+        if (dr > 0 && dt > 0){ const c = dr/dt*60; if (c < 220){ S.cad = Math.round(c); S.cadT = now; } }
+        else if (now - S.cadT > 3000) S.cad = 0;
+      }
+      S.crank = {rev, et};
+    }
+  } else if (kind === 'rd'){
+    // format public non officiel : 1 octet d'en-tête + N x [id, distance (m), vitesse]
+    const n = Math.floor((dv.byteLength - 1)/3), th = [];
+    for (let i = 0; i < n; i++){ const b = 1 + i*3; th.push({id:dv.getUint8(b), d:dv.getUint8(b + 1), v:dv.getUint8(b + 2)}); }
+    S.threats = th; S.rdT = now;
+  }
+}
+async function hookDevice(kind, dev){
+  const c = SENS[kind];
+  $(c.chip).className = 'chip wait'; $(c.st).textContent = 'connexion à ' + (dev.name || 'capteur') + '…';
+  const server = await dev.gatt.connect();
+  const svc = await server.getPrimaryService(c.svc);
+  const ch = await svc.getCharacteristic(c.chr);
+  ch.addEventListener('characteristicvaluechanged', e => parse(kind, e.target.value));
+  await ch.startNotifications();
+  $(c.chip).className = 'chip on'; $(c.st).textContent = (dev.name || 'capteur') + ' · connecté';
+  try {
+    const b = await (await server.getPrimaryService('battery_service')).getCharacteristic('battery_level');
+    const show = v => $(c.bat).textContent = v.getUint8(0) + ' %';
+    show(await b.readValue()); try { b.addEventListener('characteristicvaluechanged', e => show(e.target.value)); await b.startNotifications(); } catch {}
+  } catch {}
+  if (!dev._vc){
+    dev._vc = true;
+    dev.addEventListener('gattserverdisconnected', () => {
+      $(c.chip).className = 'chip wait'; $(c.st).textContent = 'déconnecté · reconnexion…';
+      if (kind === 'rd') S.threats = [];
+      retry(kind, dev, 1);
+    });
+  }
+}
+function retry(kind, dev, n){
+  setTimeout(() => hookDevice(kind, dev).catch(() => { if (n < 30) retry(kind, dev, n + 1); else { $(SENS[kind].chip).className = 'chip'; $(SENS[kind].st).textContent = 'perdu · reconnecter à la main'; } }), Math.min(2000*n, 15000));
+}
+async function connect(kind){
+  if (!navigator.bluetooth){ toast('Bluetooth web indisponible : utilisez Chrome sur Android, page en https'); return; }
+  const c = SENS[kind];
+  try {
+    const dev = await navigator.bluetooth.requestDevice({filters:[{services:[c.svc]}], optionalServices:['battery_service', c.svc]});
+    const known = store.get('devs', {}); known[kind] = dev.id; store.set('devs', known);
+    await hookDevice(kind, dev);
+  } catch (e) {
+    if (e.name !== 'NotFoundError') toast(c.name + ' : ' + e.message);
+    $(c.chip).className = 'chip';
+  }
+}
+document.querySelectorAll('[data-connect]').forEach(b => b.onclick = () => connect(b.dataset.connect));
+async function autoReconnect(){
+  if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+  try {
+    const devs = await navigator.bluetooth.getDevices(), known = store.get('devs', {});
+    for (const kind of Object.keys(known)){
+      const d = devs.find(x => x.id === known[kind]); if (d) hookDevice(kind, d).catch(() => retry(kind, d, 1));
+    }
+  } catch {}
+}
+
+/* ================= radar : affichage + alertes ================= */
+const rtrack = $('#rtrack'), dotsEl = {};
+let actx = null, lastAlertIds = new Set();
+function beep(f = 880, ms = 140, n = 1){
+  if (!$('#sound').checked) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < n; i++){
+      const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + i*0.2;
+      o.frequency.value = f; g.gain.setValueAtTime(.35, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + ms/1000);
+      o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + ms/1000);
+    }
+  } catch {}
+}
+function drawRadar(){
+  const now = Date.now(), fresh = now - S.rdT < 3000;
+  const th = fresh ? S.threats.filter(t => t.d > 0) : [];
+  const ids = new Set(th.map(t => t.id));
+  for (const id of Object.keys(dotsEl)) if (!ids.has(+id)){ dotsEl[id].remove(); delete dotsEl[id]; }
+  let closest = null;
+  for (const t of th){
+    let el = dotsEl[t.id]; if (!el){ el = document.createElement('div'); el.className = 'rdot'; rtrack.appendChild(el); dotsEl[t.id] = el; }
+    el.style.top = (6 + Math.min(t.d, 140)/140*88) + '%';
+    el.classList.toggle('fast', t.v >= 20 || t.d < 25);
+    if (!closest || t.d < closest.d) closest = t;
+  }
+  $('#rnone').textContent = SENS_ON('rd') ? (th.length ? '' : '✓') : '—';
+  const alert = closest && closest.d < 60;
+  $('#main').classList.toggle('alert', !!(closest && closest.d < 25));
+  rtrack.classList.toggle('alert', !!alert);
+  const b = $('#banner'); b.style.display = closest ? 'block' : 'none'; $('.sbar').classList.toggle('alert', !!closest);
+  if (closest) b.textContent = `⚠ ${th.length > 1 ? th.length + ' véhicules' : 'Véhicule'} · ${closest.d} m`;
+  for (const t of th) if (!lastAlertIds.has(t.id)){ beep(880, 140, 2); try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch {} }
+  lastAlertIds = ids;
+}
+const SENS_ON = k => $(SENS[k].chip).classList.contains('on');
+
+/* ================= enregistrement ================= */
+let tick = null, lastTick = Date.now();
+function setRec(st){
+  S.rec = st; const b = $('#rec');
+  b.className = st === 'run' ? 'run' : st === 'pause' ? 'pause' : '';
+  b.textContent = st === 'run' ? '❚❚ Pause' : st === 'pause' ? '▶ Reprendre' : '▶ Démarrer';
+  if (st === 'run'){ wake(); beep(660, 90); }
+}
+$('#rec').onclick = () => {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
+  setRec(S.rec === 'run' ? 'pause' : 'run');
+};
+let wl = null;
+async function wake(){ try { if ('wakeLock' in navigator){ wl = await navigator.wakeLock.request('screen'); } } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.rec === 'run') wake(); });
+function persist(){
+  for (const k of ['pts','dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN']) store.set(k, S[k]);
+}
+setInterval(persist, 15000);
+$('#reset').onclick = () => {
+  if (!S.pts.length && !S.dist) return;
+  if ($('#reset').dataset.c !== '1'){ $('#reset').dataset.c = '1'; $('#reset').textContent = 'Confirmer l\'effacement'; setTimeout(() => { $('#reset').dataset.c = ''; $('#reset').textContent = 'Effacer la sortie'; }, 4000); return; }
+  Object.assign(S, {pts:[], dist:0, moving:0, dp:0, vmax:0, pwSum:0, pwN:0, hrSum:0, hrN:0, eleRef:null, gradeBuf:[], grade:0});
+  trk1.setLatLngs([]); trk2.setLatLngs([]); persist(); setRec('stop'); toast('Sortie effacée');
+  $('#reset').dataset.c = ''; $('#reset').textContent = 'Effacer la sortie';
+};
+$('#gpxOut').onclick = () => {
+  if (!S.pts.length){ toast('Aucun point enregistré'); return; }
+  const esc = n => n === null || n === undefined;
+  let x = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="VeloCompteur" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">\n<metadata><time>${new Date(S.pts[0].t).toISOString()}</time></metadata>\n<trk><name>Sortie vélo</name><type>cycling</type><trkseg>\n`;
+  for (const p of S.pts){
+    x += `<trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">` + (esc(p.ele) ? '' : `<ele>${p.ele.toFixed(1)}</ele>`) + `<time>${new Date(p.t).toISOString()}</time>`;
+    const ext = (esc(p.pw) ? '' : `<power>${p.pw}</power>`) + ((esc(p.hr) && esc(p.cad)) ? '' : `<gpxtpx:TrackPointExtension>${esc(p.hr) ? '' : `<gpxtpx:hr>${p.hr}</gpxtpx:hr>`}${esc(p.cad) ? '' : `<gpxtpx:cad>${p.cad}</gpxtpx:cad>`}</gpxtpx:TrackPointExtension>`);
+    x += (ext ? `<extensions>${ext}</extensions>` : '') + '</trkpt>\n';
+  }
+  x += '</trkseg></trk>\n</gpx>';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], {type:'application/gpx+xml'}));
+  a.download = 'sortie-' + new Date(S.pts[0].t).toISOString().slice(0,16).replace(/[:T]/g, '-') + '.gpx'; a.click();
+  toast('Fichier GPX exporté : importez-le dans Strava');
+};
+
+/* ================= parcours GPX ================= */
+$('#gpxIn').onclick = () => $('#gpxFile').click();
+$('#gpxFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
+  const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => ({lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon')})).filter(p => isFinite(p.lat));
+  if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
+  setRoute(pts); store.set('route', pts); toast(`Parcours chargé : ${fmt(S.routeCum[S.routeCum.length - 1]/1000, 1)} km`);
+};
+function setRoute(pts){
+  S.route = pts; S.routeCum = [0]; for (let i = 1; i < pts.length; i++) S.routeCum.push(S.routeCum[i - 1] + hav(pts[i - 1], pts[i]));
+  const ll = pts.map(p => [p.lat, p.lon]);
+  if (rte1){ rte1.remove(); rte2.remove(); }
+  rte1 = L.polyline(ll, {color:'#2f7cf6', weight:6, opacity:.8}).addTo(map1); rte2 = L.polyline(ll, {color:'#2f7cf6', weight:6, opacity:.8}).addTo(map2);
+  trk1.bringToFront(); trk2.bringToFront();
+}
+function routeLeft(){
+  if (!S.route || !S.pos) return null;
+  let best = 0, bd = Infinity; const step = Math.max(1, Math.floor(S.route.length/2000));
+  for (let i = 0; i < S.route.length; i += step){ const d = hav(S.pos, S.route[i]); if (d < bd){ bd = d; best = i; } }
+  return (S.routeCum[S.routeCum.length - 1] - S.routeCum[best])/1000;
+}
+const savedRoute = store.get('route', null); if (savedRoute) setRoute(savedRoute);
+
+/* ================= mode démo ================= */
+let demoT = null, demoA = 0, demoCar = null, demoNext = 5;
+$('#demo').onclick = () => {
+  S.demo = !S.demo; $('#cDEMO').style.display = S.demo ? '' : 'none'; $('#demo').classList.toggle('p', S.demo);
+  if (S.demo){ demoT = setInterval(demoStep, 1000); toast('Mode démo : données simulées'); }
+  else { clearInterval(demoT); S.threats = []; S.hr = S.pw = S.cad = null; }
+};
+function demoStep(){
+  const now = Date.now(), v = 7 + Math.sin(now/9000)*1.5;   // m/s
+  demoA += v/600;                                             // boucle de ~3,8 km autour d'Hérouville
+  const lat = 49.205 + Math.sin(demoA)*0.0055, lon = -0.33 + Math.cos(demoA)*0.0085;
+  onFix(lat, lon, 30 + Math.sin(demoA*3)*12, v, now);
+  S.hr = Math.round(138 + Math.sin(now/20000)*10 + Math.random()*3); S.hrT = now;
+  S.pw = Math.round(175 + Math.sin(now/7000)*40 + Math.random()*20); S.pwT = now; S.pwBuf.push({t:now, w:S.pw});
+  S.cad = Math.round(86 + Math.random()*6); S.cadT = now;
+  demoNext--;
+  if (!demoCar && demoNext <= 0) demoCar = {id:(Math.random()*200)|0, d:140, v:9};
+  if (demoCar){ demoCar.d -= demoCar.v; if (demoCar.d <= 2){ demoCar = null; demoNext = 8 + (Math.random()*8|0); } }
+  S.threats = demoCar ? [{id:demoCar.id, d:Math.max(1, Math.round(demoCar.d)), v:Math.round(demoCar.v*3.6)}] : []; S.rdT = now;
+  for (const k of ['pw','hr','rd']) $(SENS[k].chip).className = 'chip on';
+}
+
+/* ================= boucle d'affichage ================= */
+function render(){
+  const now = Date.now();
+  if (S.rec === 'run' && !lastFix){ /* pas encore de GPS */ }
+  const d = new Date(); $('#clock').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  setK('spd', fmt(S.spd, 1));
+  S.pwBuf = S.pwBuf.filter(x => now - x.t < 3000);
+  const fresh = (t, ms = 4000) => now - t < ms;
+  setK('pw3', S.pwBuf.length && fresh(S.pwT) ? String(Math.round(S.pwBuf.reduce((a, x) => a + x.w, 0)/S.pwBuf.length)) : '--');
+  setK('cad', S.cad !== null && fresh(S.cadT) ? String(S.cad) : '--');
+  const hrOk = S.hr !== null && fresh(S.hrT, 6000);
+  setK('hr', hrOk ? String(S.hr) : '--');
+  const hrmax = +$('#hrmax').value || 185, z = hrOk ? Math.min(5, Math.max(1, Math.ceil((S.hr/hrmax - .5)/.1))) : 0;
+  setK('zone', z ? 'Z' + z : '-');
+  setK('dist', fmt(S.dist/1000, 2));
+  const s = Math.round(S.moving); setK('time', `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`);
+  setK('avg', fmt(S.moving > 0 ? S.dist/S.moving*3.6 : 0, 1));
+  setK('pwavg', S.pwN ? String(Math.round(S.pwSum/S.pwN)) : '--');
+  setK('hravg', S.hrN ? String(Math.round(S.hrSum/S.hrN)) : '--');
+  setK('dp', String(Math.round(S.dp)));
+  setK('grade', fmt(S.grade, 1) + ' %');
+  setK('vmax', fmt(S.vmax, 1));
+  const left = routeLeft(); setK('left', left === null ? '--' : fmt(left, 1));
+  drawRadar();
+}
+setInterval(render, 250);
+$('#hrmax').value = store.get('hrmax', 185); $('#hrmax').onchange = e => store.set('hrmax', +e.target.value);
+
+/* ================= divers ================= */
+document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTimeout(() => b.blur(), 0); });
+$('#fs').onclick = async () => {
+  try { await document.documentElement.requestFullscreen(); } catch {}
+  try { await screen.orientation.lock('landscape'); } catch {}
+  setTimeout(() => { map1.invalidateSize(); map2.invalidateSize(); }, 300);
+};
+if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => $('#pbat').textContent = '🔋 ' + Math.round(b.level*100) + ' %'; u(); b.onlevelchange = u; });
+addEventListener('resize', () => { map1.invalidateSize(); map2.invalidateSize(); });
+setPage(0); setRec(S.rec); startGPS(); autoReconnect();
+</script>
+</body>
+</html>
