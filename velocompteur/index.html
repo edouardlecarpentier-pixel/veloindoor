@@ -6,24 +6,26 @@
 <meta name="theme-color" content="#0b0f14">
 <meta name="mobile-web-app-capable" content="yes">
 <title>VéloCompteur</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
 :root{--bg:#0b0f14;--tile:#141c25;--mut:#93a4b6;--txt:#fff;--ok:#3ee08f;--warn:#ffb020;--red:#ff4d4d;--acc:#38d0ff;--pw:#ffcf4a;--cd:#7cc7ff;--hr:#ff6b8a}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none}
 #app{position:fixed;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-/* barre d'état */
-.sbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:4px 10px;background:#070a0e;font-size:13px;font-weight:600;color:#cfd8e2}
-.sbar .chips{display:flex;gap:5px;flex:1;overflow:hidden}
-.chip{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:#18212b;white-space:nowrap;font-size:12px}
+button{font:inherit;cursor:pointer}
+/* barre du haut */
+.sbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;background:#070a0e;font-size:13px;font-weight:600;color:#cfd8e2}
+.tabs{display:flex;gap:4px;flex:0 0 auto}
+.tabs button{border:none;border-radius:9px;padding:6px 10px;font-size:13px;font-weight:700;background:#18212b;color:#cfd8e2;min-width:42px;min-height:34px}
+.tabs button.on{background:var(--acc);color:#03202b}
+.chips{display:flex;gap:4px;flex:1;overflow:hidden}
+.chip{display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:999px;background:#18212b;white-space:nowrap;font-size:11px}
 .chip::before{content:"";width:8px;height:8px;border-radius:50%;background:#55606b}
 .chip.on::before{background:var(--ok)}.chip.wait::before{background:var(--warn)}
-.tabs{display:flex;gap:4px;flex:0 0 auto}
-.tabs button{border:none;border-radius:9px;padding:6px 11px;font:inherit;font-size:13px;font-weight:700;background:#18212b;color:#cfd8e2;min-width:44px;min-height:34px}
-.tabs button.on{background:var(--acc);color:#03202b}
-.chip{font-size:11px;padding:2px 6px}
-#rec{border:none;border-radius:999px;padding:5px 12px;font:inherit;font-weight:700;background:var(--ok);color:#03200f}
+#banner{flex:1;text-align:center;background:var(--red);color:#fff;font-weight:800;font-size:16px;padding:3px 14px;border-radius:999px;display:none;white-space:nowrap}
+.sbar.alert .chips{display:none}
+#rec{border:none;border-radius:999px;padding:5px 12px;font-weight:700;background:var(--ok);color:#03200f}
 #rec.run{background:var(--red);color:#fff}#rec.pause{background:var(--warn);color:#201400}
 /* zone principale */
 .main{flex:1;position:relative;min-height:0}
@@ -37,8 +39,6 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
 .rdot.fast{background:var(--red)}
 .rnone{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:9px;color:var(--mut)}
 .main.alert::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 5px rgba(255,77,77,.85);pointer-events:none;z-index:900}
-#banner{flex:1;text-align:center;background:var(--red);color:#fff;font-weight:800;font-size:16px;padding:3px 14px;border-radius:999px;display:none;white-space:nowrap}
-.sbar.alert .chips{display:none}
 .dots{position:absolute;left:calc(50% - 23px);bottom:6px;transform:translateX(-50%);display:flex;gap:7px;z-index:950}
 .dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3)}.dots span.on{background:#fff}
 /* tuiles */
@@ -49,53 +49,70 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
 .tile u{text-decoration:none;font-size:12px;color:var(--mut)}
 .pw b{color:var(--pw)}.cd b{color:var(--cd)}.hr b{color:var(--hr)}
 .zone{font-size:11px;font-weight:800;background:var(--hr);color:#2a0b12;border-radius:6px;padding:0 5px}
-/* page 1 : carte + données */
-.mapbox{position:relative;flex:0 0 55%;min-width:0}
-.mapbox .map{position:absolute;inset:0}
+/* carte (un seul élément, déplacé entre les écrans) */
+.slot{position:relative;min-width:0}
+.mapbox{flex:0 0 55%}
+.mapfull{flex:1}
+#mapwrap{position:absolute;inset:0}
+#map{position:absolute;inset:0;background:#dfe3e8}
+#mapwrap.dark #map{background:#111}
+.mapbtns{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.mapbtns button{width:44px;height:44px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:15px;font-weight:800}
+.mapbtns button.on{background:var(--acc);color:#03202b}
+.navcard{position:absolute;left:8px;top:8px;z-index:5;background:#13324f;border-radius:12px;padding:6px 12px;display:none;align-items:center;gap:10px;box-shadow:0 3px 10px rgba(0,0,0,.4);max-width:calc(100% - 70px)}
+.navcard .arr{font-size:38px;line-height:1;font-weight:700}
+.navcard b{font-size:26px;display:block;font-variant-numeric:tabular-nums}
+.navcard span{font-size:12px;color:#bcd3e8;white-space:nowrap}
+.navcard.soon{background:#1e6b4a}.navcard.off{background:#7a3a12}
+.me{width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:26px solid #ff5a36;filter:drop-shadow(0 0 3px rgba(0,0,0,.6))}
+.me.dot{width:20px;height:20px;border:3px solid #fff;border-radius:50%;background:#ff5a36}
+.maplibregl-ctrl-attrib{font-size:9px}
+/* page carte + données */
 .grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:6px;padding:6px 6px 24px}
 .grid .big{grid-column:1/3}.grid .big b{font-size:clamp(34px,10vh,72px)}
-/* page 2 : données plein écran */
 .grid4{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr 1fr;gap:6px;padding:6px 6px 24px}
 .grid4 .tile b{font-size:clamp(28px,8vh,60px)}
-/* page 3 : carte */
-.mapfull{position:relative;flex:1}
-.mapfull .map{position:absolute;inset:0}
-.overlay{position:absolute;left:8px;right:8px;bottom:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:800;pointer-events:none}
+.overlay{position:absolute;left:8px;right:8px;bottom:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;z-index:6;pointer-events:none}
 .overlay .tile{background:rgba(10,16,22,.88)}
 .overlay .tile b{font-size:clamp(20px,5vh,32px)}
-.mapbtn{position:absolute;right:8px;z-index:800;width:42px;height:42px;border-radius:10px;border:none;background:rgba(10,16,22,.9);color:#fff;font-size:20px;font-weight:700}
-/* page 4 : capteurs */
+/* pages réglages / son */
 .setup{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 8px 24px;overflow:auto}
+.setup.three{grid-template-columns:1.2fr 1fr 1fr}
 .card{background:var(--tile);border-radius:12px;padding:10px 12px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1f2a35;font-size:14px}
 .srow:last-child{border-bottom:none}
 .srow .n{flex:1;min-width:0}.srow .n small{display:block;color:var(--mut);font-size:11px}
 .srow .bat{font-size:12px;color:var(--mut);width:42px;text-align:right}
-.btn{border:none;border-radius:9px;padding:8px 12px;font:inherit;font-size:13px;font-weight:650;background:#24323f;color:#fff}
-.btn.p{background:var(--acc);color:#03202b}
-.btn.d{background:#3a1416;color:#ffb3b3}
-.cfg{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px}
-.cfg input[type=number]{width:70px;background:#0b1118;color:#fff;border:1px solid #2a3846;border-radius:7px;padding:5px;font:inherit}
+.btn{border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:650;background:#24323f;color:#fff}
+.btn.p{background:var(--acc);color:#03202b}.btn.d{background:#3a1416;color:#ffb3b3}
+.cfg{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;flex-wrap:wrap}
+.cfg input[type=number]{width:70px;background:#0b1118;color:#fff;border:1px solid #2a3846;border-radius:7px;padding:5px}
+.cfg input[type=range]{flex:1;min-width:120px;accent-color:var(--acc)}
 .note{font-size:11.5px;color:var(--mut);line-height:1.4;margin-top:6px}
-.leaflet-container{background:#dfe3e8}
-.me-icon{width:22px;height:22px;border-radius:50%;background:#ff5a36;border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.5)}
+.np{font-size:15px;font-weight:700;min-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl{display:flex;gap:8px;margin:8px 0}
+.ctl button{flex:1;height:52px;border:none;border-radius:12px;background:#24323f;color:#fff;font-size:22px}
+.ctl button.on{background:var(--acc);color:#03202b}
+#mList{margin:6px 0 0;padding-left:20px;font-size:13px;max-height:30vh;overflow:auto}
+#mList li{padding:3px 0;color:#cfd8e2}#mList li.cur{color:var(--acc);font-weight:700}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
-@media (max-width:760px){.chips .chip{font-size:0;padding:4px}.chips .chip::before{margin:0}}
+body.eco .tile b{transition:none}
+@media (max-width:760px){.chips .chip{font-size:0;padding:4px}}
 @media (orientation:portrait){
   .page.on{flex-direction:column}
   .mapbox{flex:0 0 45%}
   .grid4{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(6,1fr)}
-  .setup{grid-template-columns:1fr}
+  .setup,.setup.three{grid-template-columns:1fr}
   .overlay{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="sbar">
+  <div class="sbar" id="sbar">
     <span id="clock">--:--</span>
-    <div class="tabs" id="tabs"><button data-p="0">🗺 + 📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">⚙</button></div>
+    <div class="tabs" id="tabs"><button data-p="0">🗺+📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">♪</button><button data-p="4">⚙</button></div>
     <div class="chips">
       <span class="chip" id="cGPS">GPS</span>
       <span class="chip" id="cPW">Pédales</span>
@@ -108,9 +125,19 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
     <button id="rec">▶ Démarrer</button>
   </div>
   <div class="main" id="main">
-    <!-- 1 · carte + données -->
+    <!-- 0 · carte + données -->
     <div class="page on" data-name="Carte + données">
-      <div class="mapbox"><div class="map" id="map1"></div></div>
+      <div class="slot mapbox" id="slot0">
+        <div id="mapwrap">
+          <div id="map"></div>
+          <div class="navcard" id="nav"><div class="arr" id="navArr">↰</div><div><b id="navDist">300 m</b><span id="navTxt">Tournez à gauche</span></div></div>
+          <div class="mapbtns">
+            <button id="b3d" title="Vue 3D">3D</button>
+            <button id="bDark" title="Carte sombre">☾</button>
+            <button id="bCenter" title="Recentrer">◎</button>
+          </div>
+        </div>
+      </div>
       <div class="grid">
         <div class="tile big"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
         <div class="tile pw"><label>Puissance 3 s</label><div class="v"><b data-k="pw3">--</b><u>W</u></div></div>
@@ -121,7 +148,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
         <div class="tile"><label>Dénivelé +</label><div class="v"><b data-k="dp">0</b><u>m</u></div></div>
       </div>
     </div>
-    <!-- 2 · données plein écran -->
+    <!-- 1 · données plein écran -->
     <div class="page" data-name="Données">
       <div class="grid4">
         <div class="tile"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
@@ -134,20 +161,47 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
         <div class="tile pw"><label>Puissance moy.</label><div class="v"><b data-k="pwavg">--</b><u>W</u></div></div>
         <div class="tile"><label>Dénivelé +</label><div class="v"><b data-k="dp">0</b><u>m</u></div></div>
         <div class="tile"><label>Pente</label><div class="v"><b data-k="grade">0 %</b></div></div>
-        <div class="tile"><label>Vitesse max</label><div class="v"><b data-k="vmax">0,0</b><u>km/h</u></div></div>
+        <div class="tile"><label>Prochaine direction</label><div class="v"><b data-k="navshort">--</b></div></div>
         <div class="tile hr"><label>FC moy.</label><div class="v"><b data-k="hravg">--</b><u>bpm</u></div></div>
       </div>
     </div>
-    <!-- 3 · carte plein écran -->
+    <!-- 2 · carte plein écran -->
     <div class="page" data-name="Carte">
-      <div class="mapfull">
-        <div class="map" id="map2"></div>
-        <button class="mapbtn" style="top:8px" id="recenter" title="Recentrer">◎</button>
+      <div class="slot mapfull" id="slot2">
         <div class="overlay">
           <div class="tile"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
           <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
           <div class="tile"><label>Reste (parcours)</label><div class="v"><b data-k="left">--</b><u>km</u></div></div>
           <div class="tile hr"><label>FC</label><div class="v"><b data-k="hr">--</b><u>bpm</u></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- 3 · son -->
+    <div class="page" data-name="Son">
+      <div class="setup three">
+        <div class="card">
+          <h3>Musique (fichiers du téléphone)</h3>
+          <div class="np" id="np">Aucune musique chargée</div>
+          <div class="ctl"><button id="mPrev">⏮</button><button id="mPlay">▶</button><button id="mNext">⏭</button><button id="mShuf">🔀</button></div>
+          <div class="cfg">🔈 <input type="range" id="mVol" min="0" max="1" step="0.05" value="0.8"> 🔊</div>
+          <div class="cfg"><button class="btn p" id="mAdd">Choisir des musiques…</button><input type="file" id="mFiles" accept="audio/*" multiple hidden></div>
+          <ol id="mList"></ol>
+        </div>
+        <div class="card">
+          <h3>Guidage vocal</h3>
+          <div class="cfg"><label><input type="checkbox" id="voiceOn" checked> Annonces vocales des virages</label></div>
+          <div class="cfg">🔈 <input type="range" id="voiceVol" min="0" max="1" step="0.05" value="1"> 🔊</div>
+          <div class="cfg"><button class="btn" id="voiceTest">Tester la voix</button></div>
+          <h3 style="margin-top:12px">Alertes radar</h3>
+          <div class="cfg"><label><input type="checkbox" id="sound" checked> Bip à l'arrivée d'un véhicule</label></div>
+          <div class="cfg">🔈 <input type="range" id="beepVol" min="0" max="1" step="0.05" value="0.6"> 🔊</div>
+          <div class="cfg"><button class="btn" id="beepTest">Tester le bip</button></div>
+          <div class="cfg"><label><input type="checkbox" id="duck" checked> Baisser la musique pendant les annonces</label></div>
+        </div>
+        <div class="card">
+          <h3>Autres applis de musique</h3>
+          <div class="cfg"><button class="btn" data-app="com.spotify.music">Spotify</button><button class="btn" data-app="deezer.android.app">Deezer</button><button class="btn" data-app="com.google.android.apps.youtube.music">YouTube Music</button></div>
+          <div class="note">Une page web ne peut pas piloter Spotify ou Deezer. Lancez la musique dans l'appli, puis revenez ici : réglez le volume avec les boutons du téléphone ou des écouteurs. Pendant que l'autre appli est au premier plan, le GPS de VéloCompteur peut se mettre en pause : revenez vite, ou utilisez l'écran partagé d'Android.<br><br>Le lecteur de cette page, lui, se commande aussi depuis les boutons des écouteurs et l'écran verrouillé.</div>
         </div>
       </div>
     </div>
@@ -157,21 +211,20 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
         <div class="card">
           <h3>Capteurs Bluetooth</h3>
           <div class="srow"><div class="n">Pédales Garmin Rally<small id="sPW">non connecté · puissance + cadence</small></div><span class="bat" id="bPW"></span><button class="btn p" data-connect="pw">Connecter</button></div>
-          <div class="srow"><div class="n">Montre (FC)<small id="sHR">non connecté · diffusion FC à activer sur la montre</small></div><span class="bat" id="bHR"></span><button class="btn p" data-connect="hr">Connecter</button></div>
+          <div class="srow"><div class="n">Montre (FC)<small id="sHR">non connecté · partage de la FC à activer sur la montre</small></div><span class="bat" id="bHR"></span><button class="btn p" data-connect="hr">Connecter</button></div>
           <div class="srow"><div class="n">Garmin Varia RTL515<small id="sRD">non connecté · radar</small></div><span class="bat" id="bRD"></span><button class="btn p" data-connect="rd">Connecter</button></div>
-          <div class="note">Appairez une seule fois chaque capteur : l'appli tente ensuite de les reconnecter automatiquement à l'ouverture. Rally : activer les « connexions ouvertes » dans Garmin Connect. Varia : l'éloigner de l'Edge pendant l'appairage.</div>
+          <div class="note">Appairez une seule fois chaque capteur : l'appli les reconnecte ensuite à l'ouverture. Rally : activer les « connexions ouvertes » dans Garmin Connect. Varia : éloigner l'Edge pendant l'appairage.</div>
         </div>
         <div class="card">
-          <h3>Sortie</h3>
-          <div class="cfg"><button class="btn" id="gpxIn">Charger un parcours GPX</button><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden></div>
-          <div class="cfg"><button class="btn p" id="gpxOut">Exporter la sortie (GPX pour Strava)</button></div>
-          <div class="cfg"><button class="btn d" id="reset">Effacer la sortie</button></div>
+          <h3>Sortie et parcours</h3>
+          <div class="cfg"><button class="btn p" id="gpxIn">Charger un parcours GPX</button><button class="btn" id="routeClear">Retirer le parcours</button><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden></div>
+          <div class="cfg"><button class="btn" id="gpxOut">Exporter la sortie (GPX pour Strava)</button><button class="btn d" id="reset">Effacer la sortie</button></div>
           <h3 style="margin-top:12px">Réglages</h3>
           <div class="cfg">FC max <input type="number" id="hrmax" min="120" max="220" value="185"> bpm</div>
           <div class="cfg"><label><input type="checkbox" id="autopause" checked> Pause auto à l'arrêt</label></div>
-          <div class="cfg"><label><input type="checkbox" id="sound" checked> Bip radar</label></div>
+          <div class="cfg"><label><input type="checkbox" id="eco"> Mode éco batterie (carte sombre, 2D, affichage ralenti)</label></div>
           <div class="cfg"><button class="btn" id="fs">Plein écran paysage</button> <button class="btn" id="demo">Mode démo</button></div>
-          <div class="note">Changer d'écran : balayer les zones de données, ou télécommande Bluetooth (touches Entrée, Espace, flèches, Page suivante). Le mode démo simule GPS, capteurs et radar pour tester sans rouler.</div>
+          <div class="note">Écrans : boutons en haut, balayage sur les données, ou télécommande (Entrée, Espace, flèches). Le mode démo simule GPS, capteurs et radar ; avec un parcours chargé, il le suit pour tester le guidage.</div>
         </div>
       </div>
     </div>
@@ -180,6 +233,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
   </div>
 </div>
 <div id="toast"></div>
+<audio id="player" preload="auto"></audio>
 
 <script>
 /* ================= utilitaires ================= */
@@ -187,23 +241,27 @@ const $ = s => document.querySelector(s);
 const fmt = (n, k) => (isFinite(n) ? n : 0).toFixed(k).replace('.', ',');
 const setK = (k, v) => document.querySelectorAll(`[data-k="${k}"]`).forEach(e => { if (e.textContent !== v) e.textContent = v; });
 function toast(m, ms = 2600){ const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', ms); }
-const hav = (a, b) => { const R = 6371000, r = Math.PI/180, dLa = (b.lat-a.lat)*r, dLo = (b.lon-a.lon)*r;
-  const x = Math.sin(dLa/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(x)); };
+const R = Math.PI/180;
+const hav = (a, b) => { const dLa = (b.lat-a.lat)*R, dLo = (b.lon-a.lon)*R;
+  const x = Math.sin(dLa/2)**2 + Math.cos(a.lat*R)*Math.cos(b.lat*R)*Math.sin(dLo/2)**2; return 2*6371000*Math.asin(Math.sqrt(x)); };
+const brg = (a, b) => { const y = Math.sin((b.lon-a.lon)*R)*Math.cos(b.lat*R), x = Math.cos(a.lat*R)*Math.sin(b.lat*R) - Math.sin(a.lat*R)*Math.cos(b.lat*R)*Math.cos((b.lon-a.lon)*R); return (Math.atan2(y, x)/R + 360) % 360; };
+const angDiff = (a, b) => ((b - a + 540) % 360) - 180;
 const store = { get(k, d){ try { const v = localStorage.getItem('vc_' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
                 set(k, v){ try { localStorage.setItem('vc_' + k, JSON.stringify(v)); } catch {} } };
+const fmtDist = m => m >= 1000 ? fmt(m/1000, 1) + ' km' : (m >= 100 ? Math.round(m/50)*50 : Math.max(0, Math.round(m/10)*10)) + ' m';
 
 /* ================= état ================= */
 const S = {
-  rec:'stop',               // stop | run | pause
-  pts:store.get('pts', []), // points enregistrés {t,lat,lon,ele,hr,cad,pw,spd}
+  rec:'stop', pts:store.get('pts', []),
   dist:store.get('dist', 0), moving:store.get('moving', 0), dp:store.get('dp', 0), vmax:store.get('vmax', 0),
   pwSum:store.get('pwSum', 0), pwN:store.get('pwN', 0), hrSum:store.get('hrSum', 0), hrN:store.get('hrN', 0),
-  pos:null, spd:0, ele:null, eleRef:null, grade:0, gradeBuf:[],
+  pos:null, spd:0, heading:null, ele:null, eleRef:null, grade:0, gradeBuf:[],
   hr:null, hrT:0, pw:null, pwT:0, pwBuf:[], cad:null, cadT:0, crank:null,
   threats:[], rdT:0, demo:false,
-  route:null, routeCum:null,
+  route:null, rs:null, turns:[], along:0, aIdx:0, offT:0, off:false, routeTotal:0,
 };
 if (S.pts.length) S.rec = 'pause';
+const opt = { dark:store.get('dark', false), d3:store.get('d3', false), eco:store.get('eco', false) };
 
 /* ================= écrans ================= */
 const pages = [...document.querySelectorAll('.page')];
@@ -214,77 +272,284 @@ function setPage(i){
   pages.forEach((p, k) => p.classList.toggle('on', k === page));
   [...dots.children].forEach((d, k) => d.classList.toggle('on', k === page));
   document.querySelectorAll('#tabs button').forEach((b, k) => b.classList.toggle('on', k === page));
-  setTimeout(() => { map1.invalidateSize(); map2.invalidateSize(); }, 50);
+  const slot = page === 2 ? $('#slot2') : page === 0 ? $('#slot0') : null;
+  if (slot && $('#mapwrap').parentElement !== slot) slot.prepend($('#mapwrap'));
+  if (slot && map) setTimeout(() => map.resize(), 30);
 }
-// balayage sur les zones de données (pas sur la carte)
-let sx = null;
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setPage(+b.dataset.p));
-document.querySelectorAll('.grid,.grid4,.setup,.radar,.overlay').forEach(el => {
+let sx = null;
+document.querySelectorAll('.grid,.grid4,.setup,.radar').forEach(el => {
   el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive:true});
-  el.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setPage(page + (dx < 0 ? 1 : -1)); sx = null; });
+  el.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 60) setPage(page + (dx < 0 ? 1 : -1)); sx = null; });
 });
-// télécommande Bluetooth / clavier
 document.addEventListener('keydown', e => {
-  const next = ['Enter',' ','ArrowRight','ArrowDown','PageDown','MediaTrackNext','AudioVolumeUp'];
-  const prev = ['ArrowLeft','ArrowUp','PageUp','MediaTrackPrevious','AudioVolumeDown'];
   if (e.target.tagName === 'INPUT') return;
+  const next = ['Enter',' ','ArrowRight','ArrowDown','PageDown'], prev = ['ArrowLeft','ArrowUp','PageUp'];
   if (next.includes(e.key)){ e.preventDefault(); setPage(page + 1); }
   else if (prev.includes(e.key)){ e.preventDefault(); setPage(page - 1); }
 });
+document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTimeout(() => b.blur(), 0); });
 
-/* ================= cartes ================= */
-const tileUrl = 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png';
-const attrib = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · CyclOSM';
-function mkMap(id, zoom){
-  const m = L.map(id, {zoomControl:false, attributionControl:true, keyboard:false}).setView([49.205, -0.33], zoom);
-  L.tileLayer(tileUrl, {maxZoom:19, attribution:attrib, subdomains:'abc'}).addTo(m);
-  L.control.zoom({position:'topleft'}).addTo(m);
-  m._follow = true; m.on('dragstart', () => m._follow = false);
-  return m;
+/* ================= carte (MapLibre, 2D / 3D) ================= */
+const sub = ['a','b','c'];
+const style = {
+  version:8,
+  sources:{
+    cyclosm:{type:'raster', tiles:sub.map(s => `https://${s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png`), tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · CyclOSM'},
+    dark:{type:'raster', tiles:['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`), tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · © CARTO'},
+    dem:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
+    hill:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
+    route:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
+    track:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
+  },
+  layers:[
+    {id:'bg', type:'background', paint:{'background-color':'#dfe3e8'}},
+    {id:'cyclosm', type:'raster', source:'cyclosm'},
+    {id:'dark', type:'raster', source:'dark', layout:{visibility:'none'}},
+    {id:'hill', type:'hillshade', source:'hill', layout:{visibility:'none'}, paint:{'hillshade-exaggeration':0.35, 'hillshade-shadow-color':'#3a3a3a'}},
+    {id:'route-casing', type:'line', source:'route', paint:{'line-color':'#ffffff', 'line-width':9, 'line-opacity':.9}, layout:{'line-cap':'round','line-join':'round'}},
+    {id:'route', type:'line', source:'route', paint:{'line-color':'#2f7cf6', 'line-width':6}, layout:{'line-cap':'round','line-join':'round'}},
+    {id:'track', type:'line', source:'track', paint:{'line-color':'#ff5a36', 'line-width':4}, layout:{'line-cap':'round','line-join':'round'}},
+  ],
+};
+let map = null, meMarker = null, follow = true, lastCam = 0;
+try {
+  map = new maplibregl.Map({container:'map', style, center:[-0.33, 49.205], zoom:15, attributionControl:{compact:true}, keyboard:false, maxPitch:75});
+  map.dragRotate.disable(); map.touchZoomRotate.disableRotation();
+  map.on('dragstart', () => follow = false);
+  const el = document.createElement('div'); el.className = 'me dot';
+  meMarker = new maplibregl.Marker({element:el, rotationAlignment:'map', pitchAlignment:'map'}).setLngLat([-0.33, 49.205]).addTo(map);
+  map.on('load', () => { applyMapOpts(); if (S.route) setRouteLayer(); updateTrack(true); });
+} catch (e) { toast('Carte indisponible : ' + e.message, 5000); }
+
+function applyMapOpts(){
+  if (!map || !map.isStyleLoaded()) return;
+  const dark = opt.dark || opt.eco, d3 = opt.d3 && !opt.eco;
+  map.setLayoutProperty('cyclosm', 'visibility', dark ? 'none' : 'visible');
+  map.setLayoutProperty('dark', 'visibility', dark ? 'visible' : 'none');
+  map.setPaintProperty('bg', 'background-color', dark ? '#111' : '#dfe3e8');
+  map.setLayoutProperty('hill', 'visibility', d3 ? 'visible' : 'none');
+  try { map.setTerrain(d3 ? {source:'dem', exaggeration:1.4} : null); } catch {}
+  $('#mapwrap').classList.toggle('dark', dark);
+  $('#b3d').classList.toggle('on', d3); $('#bDark').classList.toggle('on', dark);
+  meMarker && (meMarker.getElement().className = d3 ? 'me' : 'me dot');
+  if (!d3) map.easeTo({pitch:0, bearing:0, duration:600});
+  else follow = true;
+  lastCam = 0;
 }
-const map1 = mkMap('map1', 16), map2 = mkMap('map2', 15);
-const meIcon = L.divIcon({className:'', html:'<div class="me-icon"></div>', iconSize:[22,22], iconAnchor:[11,11]});
-const me1 = L.marker([49.205,-0.33], {icon:meIcon}).addTo(map1), me2 = L.marker([49.205,-0.33], {icon:meIcon}).addTo(map2);
-const trk1 = L.polyline([], {color:'#ff5a36', weight:4}).addTo(map1), trk2 = L.polyline([], {color:'#ff5a36', weight:4}).addTo(map2);
-let rte1 = null, rte2 = null;
-trk1.setLatLngs(S.pts.map(p => [p.lat, p.lon])); trk2.setLatLngs(trk1.getLatLngs());
-$('#recenter').onclick = () => { map1._follow = map2._follow = true; if (S.pos){ map1.panTo([S.pos.lat, S.pos.lon]); map2.panTo([S.pos.lat, S.pos.lon]); } };
+$('#b3d').onclick = () => { if (opt.eco){ toast('Désactivez le mode éco pour la 3D'); return; } opt.d3 = !opt.d3; store.set('d3', opt.d3); applyMapOpts(); };
+$('#bDark').onclick = () => { opt.dark = !opt.dark; store.set('dark', opt.dark); applyMapOpts(); };
+$('#bCenter').onclick = () => { follow = true; lastCam = 0; moveCamera(true); };
+function moveCamera(force){
+  if (!map || !S.pos || !follow) return;
+  const now = Date.now(), gap = opt.eco ? 2000 : 800;
+  if (!force && now - lastCam < gap) return; lastCam = now;
+  const d3 = opt.d3 && !opt.eco;
+  if (d3) map.easeTo({center:[S.pos.lon, S.pos.lat], zoom:Math.max(map.getZoom(), 16), pitch:62, bearing:S.heading ?? map.getBearing(), duration:900, offset:[0, map.getContainer().clientHeight*0.22]});
+  else map.easeTo({center:[S.pos.lon, S.pos.lat], duration:opt.eco ? 0 : 600});
+}
+let trackDirty = 0;
+function updateTrack(force){
+  if (!map || !map.isStyleLoaded()) return;
+  if (!force && ++trackDirty % 3) return;
+  map.getSource('track').setData({type:'Feature', geometry:{type:'LineString', coordinates:S.pts.map(p => [p.lon, p.lat])}});
+}
 
 /* ================= GPS ================= */
 let lastFix = null;
-function onFix(lat, lon, ele, spdMs, t){
+function onFix(lat, lon, ele, spdMs, t, head){
   const p = {lat, lon};
   let spd = spdMs;
   if ((spd === null || isNaN(spd)) && lastFix){ const dt = (t - lastFix.t)/1000; spd = dt > 0 ? hav(lastFix, p)/dt : 0; }
-  S.spd = Math.max(0, (spd || 0) * 3.6);
+  S.spd = Math.max(0, (spd || 0)*3.6);
+  if (lastFix && hav(lastFix, p) > 3){ const h = (head !== null && head !== undefined && !isNaN(head)) ? head : brg(lastFix, p); S.heading = S.heading === null ? h : (S.heading + angDiff(S.heading, h)*0.5 + 360) % 360; }
   if (S.rec === 'run' && lastFix){
     const d = hav(lastFix, p), dt = (t - lastFix.t)/1000;
     const moving = !$('#autopause').checked || S.spd > 2.5;
     if (d < 200 && moving){ S.dist += d; S.moving += dt; S.vmax = Math.max(S.vmax, S.spd); }
-    if (ele !== null){
+    if (ele !== null && ele !== undefined){
       if (S.eleRef === null) S.eleRef = ele;
       if (ele - S.eleRef > 3){ S.dp += ele - S.eleRef; S.eleRef = ele; } else if (S.eleRef - ele > 3) S.eleRef = ele;
       S.gradeBuf.push({d:S.dist, e:ele}); while (S.gradeBuf.length > 2 && S.dist - S.gradeBuf[0].d > 60) S.gradeBuf.shift();
       const g0 = S.gradeBuf[0], dd = S.dist - g0.d; if (dd > 25) S.grade = (ele - g0.e)/dd*100;
     }
-    const pt = {t, lat, lon, ele, hr:S.hr, cad:S.cad, pw:S.pw, spd:+S.spd.toFixed(1)};
-    S.pts.push(pt); trk1.addLatLng([lat, lon]); trk2.addLatLng([lat, lon]);
+    S.pts.push({t, lat, lon, ele, hr:S.hr, cad:S.cad, pw:S.pw});
     if (S.pw !== null){ S.pwSum += S.pw; S.pwN++; } if (S.hr !== null){ S.hrSum += S.hr; S.hrN++; }
+    updateTrack();
   }
   lastFix = {lat, lon, t}; S.pos = p; S.ele = ele;
-  me1.setLatLng([lat, lon]); me2.setLatLng([lat, lon]);
-  if (map1._follow) map1.panTo([lat, lon], {animate:false}); if (map2._follow) map2.panTo([lat, lon], {animate:false});
+  if (meMarker){ meMarker.setLngLat([lon, lat]); if (S.heading !== null) meMarker.setRotation(S.heading); }
+  moveCamera(false);
+  navUpdate();
   $('#cGPS').className = 'chip on';
 }
-let gpsWatch = null;
 function startGPS(){
   if (!('geolocation' in navigator)){ toast('GPS indisponible'); return; }
   $('#cGPS').className = 'chip wait';
-  gpsWatch = navigator.geolocation.watchPosition(
-    p => { if (!S.demo) onFix(p.coords.latitude, p.coords.longitude, p.coords.altitude, p.coords.speed, p.timestamp); },
+  navigator.geolocation.watchPosition(
+    p => { if (!S.demo) onFix(p.coords.latitude, p.coords.longitude, p.coords.altitude, p.coords.speed, p.timestamp, p.coords.heading); },
     e => { $('#cGPS').className = 'chip'; toast('GPS : ' + e.message); },
     {enableHighAccuracy:true, maximumAge:0, timeout:20000});
 }
+
+/* ================= parcours et guidage virage par virage ================= */
+$('#gpxIn').onclick = () => $('#gpxFile').click();
+$('#gpxFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
+  const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => ({lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon')})).filter(p => isFinite(p.lat) && isFinite(p.lon));
+  if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
+  setRoute(pts); store.set('route', pts);
+  toast(`Parcours chargé : ${fmt(S.routeTotal/1000, 1)} km, ${S.turns.length} changements de direction`, 4000);
+  e.target.value = '';
+};
+$('#routeClear').onclick = () => { S.route = S.rs = null; S.turns = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
+function setRoute(pts){
+  S.route = pts;
+  // ré-échantillonnage tous les 10 m
+  const rs = [{lat:pts[0].lat, lon:pts[0].lon, d:0}]; let acc = 0, carry = 0;
+  for (let i = 1; i < pts.length; i++){
+    const a = pts[i-1], b = pts[i], seg = hav(a, b); if (seg === 0) continue;
+    let pos = 10 - carry;
+    while (pos <= seg){ const f = pos/seg; rs.push({lat:a.lat + (b.lat - a.lat)*f, lon:a.lon + (b.lon - a.lon)*f, d:acc + pos}); pos += 10; }
+    carry = seg - (pos - 10); acc += seg;
+  }
+  const last = pts[pts.length - 1]; rs.push({lat:last.lat, lon:last.lon, d:acc});
+  S.rs = rs; S.routeTotal = acc; S.aIdx = 0; S.along = 0; S.off = false; S.offT = 0;
+  // détection des virages : changement de cap sur ±30 m
+  const W = 3, cand = [];
+  for (let i = W; i < rs.length - W; i++){
+    const a = angDiff(brg(rs[i - W], rs[i]), brg(rs[i], rs[i + W]));
+    if (Math.abs(a) >= 35) cand.push({i, a});
+  }
+  const turns = []; let grp = [];
+  const flush = () => { if (!grp.length) return; const m = grp.reduce((x, y) => Math.abs(y.a) > Math.abs(x.a) ? y : x); turns.push({d:rs[m.i].d, a:m.a, lat:rs[m.i].lat, lon:rs[m.i].lon}); grp = []; };
+  for (const c of cand){ if (grp.length && c.i - grp[grp.length - 1].i > 2) flush(); grp.push(c); }
+  flush();
+  S.turns = turns.filter((t, k) => k === 0 || t.d - turns[k - 1].d > 30).map(t => ({...t, said:{}}));
+  setRouteLayer();
+  if (map && map.isStyleLoaded()){
+    const b = new maplibregl.LngLatBounds(); rs.forEach(p => b.extend([p.lon, p.lat]));
+    if (!S.pos) map.fitBounds(b, {padding:40, duration:0});
+  }
+}
+function setRouteLayer(){
+  if (!map || !map.isStyleLoaded()) return;
+  map.getSource('route').setData(S.rs ? {type:'Feature', geometry:{type:'LineString', coordinates:S.rs.map(p => [p.lon, p.lat])}} : {type:'FeatureCollection', features:[]});
+}
+function turnInfo(a){
+  const L = a < 0, x = Math.abs(a);
+  if (x >= 135) return {arr:L ? '↶' : '↷', txt:`Virage serré à ${L ? 'gauche' : 'droite'}`, say:`prenez le virage serré à ${L ? 'gauche' : 'droite'}`};
+  if (x >= 65) return {arr:L ? '↰' : '↱', txt:`Tournez à ${L ? 'gauche' : 'droite'}`, say:`tournez à ${L ? 'gauche' : 'droite'}`};
+  return {arr:L ? '↖' : '↗', txt:`Légèrement à ${L ? 'gauche' : 'droite'}`, say:`serrez légèrement à ${L ? 'gauche' : 'droite'}`};
+}
+function navUpdate(){
+  const nav = $('#nav');
+  if (!S.rs || !S.pos){ nav.style.display = 'none'; setK('navshort', '--'); return; }
+  // position le long du parcours : recherche autour du dernier index connu
+  let best = S.aIdx, bd = Infinity;
+  const from = Math.max(0, S.aIdx - 30), to = Math.min(S.rs.length - 1, S.aIdx + 300);
+  for (let i = from; i <= to; i++){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } }
+  if (bd > 120){ for (let i = 0; i < S.rs.length; i += 2){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } } }
+  S.aIdx = best; S.along = S.rs[best].d;
+  const now = Date.now();
+  if (bd > 50){ if (!S.offT) S.offT = now; if (!S.off && now - S.offT > 8000){ S.off = true; say('Vous avez quitté le parcours'); } }
+  else { if (S.off && bd < 30){ S.off = false; say('Parcours retrouvé'); } if (bd < 30) S.offT = 0; }
+  nav.style.display = 'flex';
+  if (S.off){
+    nav.className = 'navcard off'; $('#navArr').textContent = '⚠'; $('#navDist').textContent = fmtDist(bd); $('#navTxt').textContent = 'Hors parcours · rejoignez la ligne bleue';
+    setK('navshort', 'Hors parcours'); return;
+  }
+  const next = S.turns.find(t => t.d > S.along + 5);
+  const left = S.routeTotal - S.along;
+  if (!next){
+    nav.className = 'navcard'; $('#navArr').textContent = '🏁'; $('#navDist').textContent = fmtDist(left); $('#navTxt').textContent = 'Arrivée';
+    setK('navshort', '🏁 ' + fmtDist(left));
+    if (left < 30 && !S.arrSaid){ S.arrSaid = true; say('Vous êtes arrivé'); }
+    return;
+  }
+  S.arrSaid = false;
+  const dist = next.d - S.along, ti = turnInfo(next.a);
+  nav.className = 'navcard' + (dist < 120 ? ' soon' : '');
+  $('#navArr').textContent = ti.arr; $('#navDist').textContent = fmtDist(dist); $('#navTxt').textContent = ti.txt;
+  setK('navshort', ti.arr + ' ' + fmtDist(dist));
+  // annonces : vers 400 m, 100 m, puis au virage
+  if (dist <= 420 && dist > 250 && !next.said.far){ next.said.far = 1; say(`Dans ${Math.round(dist/50)*50} mètres, ${ti.say}`); }
+  else if (dist <= 110 && dist > 35 && !next.said.near){ next.said.near = 1; next.said.far = 1; say(`Dans ${Math.round(dist/10)*10} mètres, ${ti.say}`); }
+  else if (dist <= 30 && !next.said.now){ next.said.now = 1; next.said.near = 1; next.said.far = 1; say(ti.say.charAt(0).toUpperCase() + ti.say.slice(1) + ' maintenant'); }
+}
+const savedRoute = store.get('route', null); if (savedRoute) setRoute(savedRoute);
+
+/* ================= son : voix, bips, lecteur ================= */
+let actx = null;
+const audioCtx = () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch {} return actx; };
+function beep(f = 880, ms = 140, n = 1){
+  if (!$('#sound').checked) return;
+  const c = audioCtx(); if (!c) return; const vol = +$('#beepVol').value;
+  for (let i = 0; i < n; i++){
+    const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + i*0.2;
+    o.frequency.value = f; g.gain.setValueAtTime(Math.max(.001, vol*.6), t0); g.gain.exponentialRampToValueAtTime(.001, t0 + ms/1000);
+    o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + ms/1000);
+  }
+  duck(800);
+}
+let frVoice = null;
+const pickVoice = () => { const v = speechSynthesis.getVoices(); frVoice = v.find(x => /^fr(-|_)FR/i.test(x.lang)) || v.find(x => /^fr/i.test(x.lang)) || null; };
+if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function say(text){
+  if (!$('#voiceOn').checked || !('speechSynthesis' in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; if (frVoice) u.voice = frVoice;
+    u.volume = +$('#voiceVol').value; u.rate = 1.05;
+    duck(0); u.onend = () => unduck(); u.onerror = () => unduck();
+    speechSynthesis.speak(u);
+  } catch {}
+}
+const player = $('#player'); let playlist = [], cur = -1, shuffle = false, duckT = null, ducked = false;
+function duck(ms){
+  if (!$('#duck').checked || player.paused) return;
+  ducked = true; player.volume = Math.max(0, +$('#mVol').value*0.25);
+  clearTimeout(duckT); if (ms) duckT = setTimeout(unduck, ms);
+}
+function unduck(){ if (!ducked) return; ducked = false; player.volume = +$('#mVol').value; }
+$('#mVol').oninput = e => { if (!ducked) player.volume = +e.target.value; store.set('mVol', +e.target.value); };
+['voiceVol','beepVol'].forEach(id => { $('#' + id).value = store.get(id, $('#' + id).value); $('#' + id).oninput = e => store.set(id, +e.target.value); });
+$('#mVol').value = store.get('mVol', .8); player.volume = +$('#mVol').value;
+$('#voiceTest').onclick = () => say('Dans 300 mètres, tournez à gauche');
+$('#beepTest').onclick = () => { audioCtx(); beep(880, 140, 2); };
+$('#mAdd').onclick = () => $('#mFiles').click();
+$('#mFiles').onchange = e => {
+  const files = [...e.target.files]; if (!files.length) return;
+  playlist = playlist.concat(files.map(f => ({name:f.name.replace(/\.[^.]+$/, ''), url:URL.createObjectURL(f)})));
+  renderList(); if (cur < 0) playIdx(0); e.target.value = '';
+};
+function renderList(){
+  $('#mList').innerHTML = playlist.map((t, i) => `<li class="${i === cur ? 'cur' : ''}" data-i="${i}">${t.name.replace(/</g, '&lt;')}</li>`).join('');
+  $('#mList').querySelectorAll('li').forEach(li => li.onclick = () => playIdx(+li.dataset.i));
+}
+function playIdx(i){
+  if (!playlist.length) return;
+  cur = (i + playlist.length) % playlist.length; player.src = playlist[cur].url; player.play().catch(() => {});
+  $('#np').textContent = '♪ ' + playlist[cur].name; renderList();
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({title:playlist[cur].name, artist:'VéloCompteur'});
+}
+const nextTrack = () => playIdx(shuffle ? Math.floor(Math.random()*playlist.length) : cur + 1);
+$('#mPlay').onclick = () => { if (cur < 0){ if (playlist.length) playIdx(0); else $('#mFiles').click(); return; } player.paused ? player.play() : player.pause(); };
+$('#mNext').onclick = nextTrack; $('#mPrev').onclick = () => playIdx(cur - 1);
+$('#mShuf').onclick = () => { shuffle = !shuffle; $('#mShuf').classList.toggle('on', shuffle); };
+player.onended = nextTrack;
+player.onplay = () => $('#mPlay').textContent = '⏸'; player.onpause = () => $('#mPlay').textContent = '▶';
+if ('mediaSession' in navigator){
+  navigator.mediaSession.setActionHandler('play', () => player.play());
+  navigator.mediaSession.setActionHandler('pause', () => player.pause());
+  navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+  navigator.mediaSession.setActionHandler('previoustrack', () => playIdx(cur - 1));
+}
+document.querySelectorAll('[data-app]').forEach(b => b.onclick = () => {
+  const pkg = b.dataset.app;
+  location.href = `intent://#Intent;package=${pkg};S.browser_fallback_url=${encodeURIComponent('https://play.google.com/store/apps/details?id=' + pkg)};end`;
+});
 
 /* ================= Bluetooth ================= */
 const RADAR_SVC = '6a4e3200-667b-11e3-949a-0800200c9a66', RADAR_CHR = '6a4e3203-667b-11e3-949a-0800200c9a66';
@@ -295,11 +560,10 @@ const SENS = {
 };
 function parse(kind, dv){
   const now = Date.now();
-  if (kind === 'hr'){
-    const f = dv.getUint8(0); S.hr = (f & 1) ? dv.getUint16(1, true) : dv.getUint8(1); S.hrT = now;
-  } else if (kind === 'pw'){
-    const f = dv.getUint16(0, true); const w = dv.getInt16(2, true); let o = 4;
-    S.pw = Math.max(0, w); S.pwT = now; S.pwBuf.push({t:now, w:S.pw});
+  if (kind === 'hr'){ const f = dv.getUint8(0); S.hr = (f & 1) ? dv.getUint16(1, true) : dv.getUint8(1); S.hrT = now; }
+  else if (kind === 'pw'){
+    const f = dv.getUint16(0, true); let o = 4;
+    S.pw = Math.max(0, dv.getInt16(2, true)); S.pwT = now; S.pwBuf.push({t:now, w:S.pw});
     if (f & 0x01) o += 1; if (f & 0x04) o += 2; if (f & 0x10) o += 6;
     if ((f & 0x20) && dv.byteLength >= o + 4){
       const rev = dv.getUint16(o, true), et = dv.getUint16(o + 2, true);
@@ -311,7 +575,6 @@ function parse(kind, dv){
       S.crank = {rev, et};
     }
   } else if (kind === 'rd'){
-    // format public non officiel : 1 octet d'en-tête + N x [id, distance (m), vitesse]
     const n = Math.floor((dv.byteLength - 1)/3), th = [];
     for (let i = 0; i < n; i++){ const b = 1 + i*3; th.push({id:dv.getUint8(b), d:dv.getUint8(b + 1), v:dv.getUint8(b + 2)}); }
     S.threats = th; S.rdT = now;
@@ -321,8 +584,7 @@ async function hookDevice(kind, dev){
   const c = SENS[kind];
   $(c.chip).className = 'chip wait'; $(c.st).textContent = 'connexion à ' + (dev.name || 'capteur') + '…';
   const server = await dev.gatt.connect();
-  const svc = await server.getPrimaryService(c.svc);
-  const ch = await svc.getCharacteristic(c.chr);
+  const ch = await (await server.getPrimaryService(c.svc)).getCharacteristic(c.chr);
   ch.addEventListener('characteristicvaluechanged', e => parse(kind, e.target.value));
   await ch.startNotifications();
   $(c.chip).className = 'chip on'; $(c.st).textContent = (dev.name || 'capteur') + ' · connecté';
@@ -331,111 +593,74 @@ async function hookDevice(kind, dev){
     const show = v => $(c.bat).textContent = v.getUint8(0) + ' %';
     show(await b.readValue()); try { b.addEventListener('characteristicvaluechanged', e => show(e.target.value)); await b.startNotifications(); } catch {}
   } catch {}
-  if (!dev._vc){
-    dev._vc = true;
-    dev.addEventListener('gattserverdisconnected', () => {
-      $(c.chip).className = 'chip wait'; $(c.st).textContent = 'déconnecté · reconnexion…';
-      if (kind === 'rd') S.threats = [];
-      retry(kind, dev, 1);
-    });
-  }
+  if (!dev._vc){ dev._vc = true; dev.addEventListener('gattserverdisconnected', () => { $(c.chip).className = 'chip wait'; $(c.st).textContent = 'déconnecté · reconnexion…'; if (kind === 'rd') S.threats = []; retry(kind, dev, 1); }); }
 }
 function retry(kind, dev, n){
   setTimeout(() => hookDevice(kind, dev).catch(() => { if (n < 30) retry(kind, dev, n + 1); else { $(SENS[kind].chip).className = 'chip'; $(SENS[kind].st).textContent = 'perdu · reconnecter à la main'; } }), Math.min(2000*n, 15000));
 }
 async function connect(kind){
-  if (!navigator.bluetooth){ toast('Bluetooth web indisponible : utilisez Chrome sur Android, page en https'); return; }
+  if (!navigator.bluetooth){ toast('Bluetooth web indisponible : utilisez Chrome sur Android'); return; }
   const c = SENS[kind];
   try {
     const dev = await navigator.bluetooth.requestDevice({filters:[{services:[c.svc]}], optionalServices:['battery_service', c.svc]});
     const known = store.get('devs', {}); known[kind] = dev.id; store.set('devs', known);
     await hookDevice(kind, dev);
-  } catch (e) {
-    if (e.name !== 'NotFoundError') toast(c.name + ' : ' + e.message);
-    $(c.chip).className = 'chip';
-  }
+  } catch (e) { if (e.name !== 'NotFoundError') toast(c.name + ' : ' + e.message); $(c.chip).className = 'chip'; }
 }
 document.querySelectorAll('[data-connect]').forEach(b => b.onclick = () => connect(b.dataset.connect));
 async function autoReconnect(){
   if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
-  try {
-    const devs = await navigator.bluetooth.getDevices(), known = store.get('devs', {});
-    for (const kind of Object.keys(known)){
-      const d = devs.find(x => x.id === known[kind]); if (d) hookDevice(kind, d).catch(() => retry(kind, d, 1));
-    }
-  } catch {}
+  try { const devs = await navigator.bluetooth.getDevices(), known = store.get('devs', {});
+    for (const kind of Object.keys(known)){ const d = devs.find(x => x.id === known[kind]); if (d) hookDevice(kind, d).catch(() => retry(kind, d, 1)); } } catch {}
 }
 
-/* ================= radar : affichage + alertes ================= */
-const rtrack = $('#rtrack'), dotsEl = {};
-let actx = null, lastAlertIds = new Set();
-function beep(f = 880, ms = 140, n = 1){
-  if (!$('#sound').checked) return;
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    for (let i = 0; i < n; i++){
-      const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + i*0.2;
-      o.frequency.value = f; g.gain.setValueAtTime(.35, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + ms/1000);
-      o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + ms/1000);
-    }
-  } catch {}
-}
+/* ================= radar ================= */
+const rtrack = $('#rtrack'), dotsEl = {}; let lastAlertIds = new Set();
+const SENS_ON = k => $(SENS[k].chip).classList.contains('on');
 function drawRadar(){
-  const now = Date.now(), fresh = now - S.rdT < 3000;
-  const th = fresh ? S.threats.filter(t => t.d > 0) : [];
+  const th = Date.now() - S.rdT < 3000 ? S.threats.filter(t => t.d > 0) : [];
   const ids = new Set(th.map(t => t.id));
   for (const id of Object.keys(dotsEl)) if (!ids.has(+id)){ dotsEl[id].remove(); delete dotsEl[id]; }
   let closest = null;
   for (const t of th){
     let el = dotsEl[t.id]; if (!el){ el = document.createElement('div'); el.className = 'rdot'; rtrack.appendChild(el); dotsEl[t.id] = el; }
-    el.style.top = (6 + Math.min(t.d, 140)/140*88) + '%';
-    el.classList.toggle('fast', t.v >= 20 || t.d < 25);
+    el.style.top = (6 + Math.min(t.d, 140)/140*88) + '%'; el.classList.toggle('fast', t.d < 25);
     if (!closest || t.d < closest.d) closest = t;
   }
   $('#rnone').textContent = SENS_ON('rd') ? (th.length ? '' : '✓') : '—';
-  const alert = closest && closest.d < 60;
   $('#main').classList.toggle('alert', !!(closest && closest.d < 25));
-  rtrack.classList.toggle('alert', !!alert);
-  const b = $('#banner'); b.style.display = closest ? 'block' : 'none'; $('.sbar').classList.toggle('alert', !!closest);
-  if (closest) b.textContent = `⚠ ${th.length > 1 ? th.length + ' véhicules' : 'Véhicule'} · ${closest.d} m`;
+  rtrack.classList.toggle('alert', !!(closest && closest.d < 60));
+  $('#banner').style.display = closest ? 'block' : 'none'; $('#sbar').classList.toggle('alert', !!closest);
+  if (closest) $('#banner').textContent = `⚠ ${th.length > 1 ? th.length + ' véhicules' : 'Véhicule'} · ${closest.d} m`;
   for (const t of th) if (!lastAlertIds.has(t.id)){ beep(880, 140, 2); try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch {} }
   lastAlertIds = ids;
 }
-const SENS_ON = k => $(SENS[k].chip).classList.contains('on');
 
 /* ================= enregistrement ================= */
-let tick = null, lastTick = Date.now();
 function setRec(st){
   S.rec = st; const b = $('#rec');
   b.className = st === 'run' ? 'run' : st === 'pause' ? 'pause' : '';
   b.textContent = st === 'run' ? '❚❚ Pause' : st === 'pause' ? '▶ Reprendre' : '▶ Démarrer';
   if (st === 'run'){ wake(); beep(660, 90); }
 }
-$('#rec').onclick = () => {
-  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
-  setRec(S.rec === 'run' ? 'pause' : 'run');
-};
-let wl = null;
-async function wake(){ try { if ('wakeLock' in navigator){ wl = await navigator.wakeLock.request('screen'); } } catch {} }
+$('#rec').onclick = () => { audioCtx(); setRec(S.rec === 'run' ? 'pause' : 'run'); };
+async function wake(){ try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {} }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.rec === 'run') wake(); });
-function persist(){
-  for (const k of ['pts','dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN']) store.set(k, S[k]);
-}
+function persist(){ for (const k of ['pts','dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN']) store.set(k, S[k]); }
 setInterval(persist, 15000);
 $('#reset').onclick = () => {
-  if (!S.pts.length && !S.dist) return;
-  if ($('#reset').dataset.c !== '1'){ $('#reset').dataset.c = '1'; $('#reset').textContent = 'Confirmer l\'effacement'; setTimeout(() => { $('#reset').dataset.c = ''; $('#reset').textContent = 'Effacer la sortie'; }, 4000); return; }
+  const b = $('#reset');
+  if (b.dataset.c !== '1'){ b.dataset.c = '1'; b.textContent = 'Confirmer l\'effacement'; setTimeout(() => { b.dataset.c = ''; b.textContent = 'Effacer la sortie'; }, 4000); return; }
   Object.assign(S, {pts:[], dist:0, moving:0, dp:0, vmax:0, pwSum:0, pwN:0, hrSum:0, hrN:0, eleRef:null, gradeBuf:[], grade:0});
-  trk1.setLatLngs([]); trk2.setLatLngs([]); persist(); setRec('stop'); toast('Sortie effacée');
-  $('#reset').dataset.c = ''; $('#reset').textContent = 'Effacer la sortie';
+  updateTrack(true); persist(); setRec('stop'); toast('Sortie effacée'); b.dataset.c = ''; b.textContent = 'Effacer la sortie';
 };
 $('#gpxOut').onclick = () => {
   if (!S.pts.length){ toast('Aucun point enregistré'); return; }
-  const esc = n => n === null || n === undefined;
+  const no = n => n === null || n === undefined;
   let x = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="VeloCompteur" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">\n<metadata><time>${new Date(S.pts[0].t).toISOString()}</time></metadata>\n<trk><name>Sortie vélo</name><type>cycling</type><trkseg>\n`;
   for (const p of S.pts){
-    x += `<trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">` + (esc(p.ele) ? '' : `<ele>${p.ele.toFixed(1)}</ele>`) + `<time>${new Date(p.t).toISOString()}</time>`;
-    const ext = (esc(p.pw) ? '' : `<power>${p.pw}</power>`) + ((esc(p.hr) && esc(p.cad)) ? '' : `<gpxtpx:TrackPointExtension>${esc(p.hr) ? '' : `<gpxtpx:hr>${p.hr}</gpxtpx:hr>`}${esc(p.cad) ? '' : `<gpxtpx:cad>${p.cad}</gpxtpx:cad>`}</gpxtpx:TrackPointExtension>`);
+    x += `<trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">` + (no(p.ele) ? '' : `<ele>${p.ele.toFixed(1)}</ele>`) + `<time>${new Date(p.t).toISOString()}</time>`;
+    const ext = (no(p.pw) ? '' : `<power>${p.pw}</power>`) + ((no(p.hr) && no(p.cad)) ? '' : `<gpxtpx:TrackPointExtension>${no(p.hr) ? '' : `<gpxtpx:hr>${p.hr}</gpxtpx:hr>`}${no(p.cad) ? '' : `<gpxtpx:cad>${p.cad}</gpxtpx:cad>`}</gpxtpx:TrackPointExtension>`);
     x += (ext ? `<extensions>${ext}</extensions>` : '') + '</trkpt>\n';
   }
   x += '</trkseg></trk>\n</gpx>';
@@ -444,42 +669,21 @@ $('#gpxOut').onclick = () => {
   toast('Fichier GPX exporté : importez-le dans Strava');
 };
 
-/* ================= parcours GPX ================= */
-$('#gpxIn').onclick = () => $('#gpxFile').click();
-$('#gpxFile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
-  const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => ({lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon')})).filter(p => isFinite(p.lat));
-  if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
-  setRoute(pts); store.set('route', pts); toast(`Parcours chargé : ${fmt(S.routeCum[S.routeCum.length - 1]/1000, 1)} km`);
-};
-function setRoute(pts){
-  S.route = pts; S.routeCum = [0]; for (let i = 1; i < pts.length; i++) S.routeCum.push(S.routeCum[i - 1] + hav(pts[i - 1], pts[i]));
-  const ll = pts.map(p => [p.lat, p.lon]);
-  if (rte1){ rte1.remove(); rte2.remove(); }
-  rte1 = L.polyline(ll, {color:'#2f7cf6', weight:6, opacity:.8}).addTo(map1); rte2 = L.polyline(ll, {color:'#2f7cf6', weight:6, opacity:.8}).addTo(map2);
-  trk1.bringToFront(); trk2.bringToFront();
-}
-function routeLeft(){
-  if (!S.route || !S.pos) return null;
-  let best = 0, bd = Infinity; const step = Math.max(1, Math.floor(S.route.length/2000));
-  for (let i = 0; i < S.route.length; i += step){ const d = hav(S.pos, S.route[i]); if (d < bd){ bd = d; best = i; } }
-  return (S.routeCum[S.routeCum.length - 1] - S.routeCum[best])/1000;
-}
-const savedRoute = store.get('route', null); if (savedRoute) setRoute(savedRoute);
-
 /* ================= mode démo ================= */
-let demoT = null, demoA = 0, demoCar = null, demoNext = 5;
+let demoT = null, demoA = 0, demoAlong = 0, demoCar = null, demoNext = 5;
 $('#demo').onclick = () => {
   S.demo = !S.demo; $('#cDEMO').style.display = S.demo ? '' : 'none'; $('#demo').classList.toggle('p', S.demo);
-  if (S.demo){ demoT = setInterval(demoStep, 1000); toast('Mode démo : données simulées'); }
+  if (S.demo){ demoAlong = S.rs ? 0 : 0; demoT = setInterval(demoStep, 1000); toast(S.rs ? 'Mode démo : suit le parcours chargé' : 'Mode démo : boucle autour d\'Hérouville'); }
   else { clearInterval(demoT); S.threats = []; S.hr = S.pw = S.cad = null; }
 };
 function demoStep(){
-  const now = Date.now(), v = 7 + Math.sin(now/9000)*1.5;   // m/s
-  demoA += v/600;                                             // boucle de ~3,8 km autour d'Hérouville
-  const lat = 49.205 + Math.sin(demoA)*0.0055, lon = -0.33 + Math.cos(demoA)*0.0085;
-  onFix(lat, lon, 30 + Math.sin(demoA*3)*12, v, now);
+  const now = Date.now(), v = 7 + Math.sin(now/9000)*1.5;
+  let lat, lon;
+  if (S.rs){
+    demoAlong = Math.min(S.routeTotal, demoAlong + v); const k = Math.min(S.rs.length - 1, Math.round(demoAlong/10));
+    lat = S.rs[k].lat + (Math.random() - .5)*0.00004; lon = S.rs[k].lon + (Math.random() - .5)*0.00004;
+  } else { demoA += v/600; lat = 49.205 + Math.sin(demoA)*0.0055; lon = -0.33 + Math.cos(demoA)*0.0085; }
+  onFix(lat, lon, 30 + Math.sin(now/30000)*12, v, now, null);
   S.hr = Math.round(138 + Math.sin(now/20000)*10 + Math.random()*3); S.hrT = now;
   S.pw = Math.round(175 + Math.sin(now/7000)*40 + Math.random()*20); S.pwT = now; S.pwBuf.push({t:now, w:S.pw});
   S.cad = Math.round(86 + Math.random()*6); S.cadT = now;
@@ -490,44 +694,38 @@ function demoStep(){
   for (const k of ['pw','hr','rd']) $(SENS[k].chip).className = 'chip on';
 }
 
-/* ================= boucle d'affichage ================= */
+/* ================= affichage ================= */
 function render(){
-  const now = Date.now();
-  if (S.rec === 'run' && !lastFix){ /* pas encore de GPS */ }
-  const d = new Date(); $('#clock').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  const now = Date.now(), d = new Date();
+  $('#clock').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
   setK('spd', fmt(S.spd, 1));
   S.pwBuf = S.pwBuf.filter(x => now - x.t < 3000);
   const fresh = (t, ms = 4000) => now - t < ms;
   setK('pw3', S.pwBuf.length && fresh(S.pwT) ? String(Math.round(S.pwBuf.reduce((a, x) => a + x.w, 0)/S.pwBuf.length)) : '--');
   setK('cad', S.cad !== null && fresh(S.cadT) ? String(S.cad) : '--');
-  const hrOk = S.hr !== null && fresh(S.hrT, 6000);
-  setK('hr', hrOk ? String(S.hr) : '--');
-  const hrmax = +$('#hrmax').value || 185, z = hrOk ? Math.min(5, Math.max(1, Math.ceil((S.hr/hrmax - .5)/.1))) : 0;
-  setK('zone', z ? 'Z' + z : '-');
+  const hrOk = S.hr !== null && fresh(S.hrT, 6000); setK('hr', hrOk ? String(S.hr) : '--');
+  const hrmax = +$('#hrmax').value || 185, z = hrOk ? Math.min(5, Math.max(1, Math.ceil((S.hr/hrmax - .5)/.1))) : 0; setK('zone', z ? 'Z' + z : '-');
   setK('dist', fmt(S.dist/1000, 2));
   const s = Math.round(S.moving); setK('time', `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`);
   setK('avg', fmt(S.moving > 0 ? S.dist/S.moving*3.6 : 0, 1));
-  setK('pwavg', S.pwN ? String(Math.round(S.pwSum/S.pwN)) : '--');
-  setK('hravg', S.hrN ? String(Math.round(S.hrSum/S.hrN)) : '--');
-  setK('dp', String(Math.round(S.dp)));
-  setK('grade', fmt(S.grade, 1) + ' %');
-  setK('vmax', fmt(S.vmax, 1));
-  const left = routeLeft(); setK('left', left === null ? '--' : fmt(left, 1));
+  setK('pwavg', S.pwN ? String(Math.round(S.pwSum/S.pwN)) : '--'); setK('hravg', S.hrN ? String(Math.round(S.hrSum/S.hrN)) : '--');
+  setK('dp', String(Math.round(S.dp))); setK('grade', fmt(S.grade, 1) + ' %');
+  setK('left', S.rs && S.pos ? fmt((S.routeTotal - S.along)/1000, 1) : '--');
   drawRadar();
 }
-setInterval(render, 250);
+let renderT = null;
+function applyEco(){
+  document.body.classList.toggle('eco', opt.eco); $('#eco').checked = opt.eco;
+  clearInterval(renderT); renderT = setInterval(render, opt.eco ? 1000 : 250);
+  applyMapOpts();
+}
+$('#eco').onchange = e => { opt.eco = e.target.checked; store.set('eco', opt.eco); applyEco(); };
 $('#hrmax').value = store.get('hrmax', 185); $('#hrmax').onchange = e => store.set('hrmax', +e.target.value);
-
-/* ================= divers ================= */
-document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTimeout(() => b.blur(), 0); });
-$('#fs').onclick = async () => {
-  try { await document.documentElement.requestFullscreen(); } catch {}
-  try { await screen.orientation.lock('landscape'); } catch {}
-  setTimeout(() => { map1.invalidateSize(); map2.invalidateSize(); }, 300);
-};
+['voiceOn','sound','duck','autopause'].forEach(id => { const el = $('#' + id); el.checked = store.get(id, el.checked); el.onchange = () => store.set(id, el.checked); });
+$('#fs').onclick = async () => { try { await document.documentElement.requestFullscreen(); } catch {} try { await screen.orientation.lock('landscape'); } catch {} setTimeout(() => map && map.resize(), 300); };
 if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => $('#pbat').textContent = '🔋 ' + Math.round(b.level*100) + ' %'; u(); b.onlevelchange = u; });
-addEventListener('resize', () => { map1.invalidateSize(); map2.invalidateSize(); });
-setPage(0); setRec(S.rec); startGPS(); autoReconnect();
+addEventListener('resize', () => map && map.resize());
+setPage(0); setRec(S.rec); applyEco(); startGPS(); autoReconnect();
 </script>
 </body>
 </html>
