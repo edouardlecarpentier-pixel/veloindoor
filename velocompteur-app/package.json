@@ -12,7 +12,9 @@
     "@capacitor/core": "^7.0.0",
     "@capacitor/filesystem": "^7.1.9",
     "@capacitor/local-notifications": "^7.0.7",
-    "@capacitor/share": "^7.0.4"
+    "@capacitor/share": "^7.0.4",
+    "@capacitor/app": "^7.0.0",
+    "maplibre-gl": "4.7.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",

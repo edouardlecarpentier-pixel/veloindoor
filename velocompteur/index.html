@@ -101,6 +101,28 @@ button{font:inherit;cursor:pointer}
 .ctl button.on{background:var(--acc);color:#03202b}
 #mList{margin:6px 0 0;padding-left:20px;font-size:13px;max-height:30vh;overflow:auto}
 #mList li{padding:3px 0;color:var(--bartxt)}#mList li.cur{color:var(--acc);font-weight:700}
+.sbtn{border:none;border-radius:999px;padding:5px 10px;font-weight:700;background:var(--btn);color:var(--txt);display:none;white-space:nowrap}
+.setup.cards{grid-template-columns:repeat(auto-fill,minmax(290px,1fr));align-items:start}
+.cfg input[type=text],.cfg input[type=tel],.cfg input[type=password],.cfg select{background:var(--input);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px;font:inherit;min-width:0}
+.cfg input.w{flex:1}
+.prog{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:4px}.prog i{display:block;height:100%;width:0;background:var(--acc)}
+#prof{position:absolute;left:8px;right:60px;bottom:22px;height:74px;width:calc(100% - 68px);z-index:4;border-radius:10px;background:rgba(10,16,22,.78);display:none;pointer-events:none}
+#mapwrap.full #prof{bottom:104px}
+.climbcard{position:absolute;left:8px;top:84px;z-index:5;background:#5a3a0e;color:#fff;border-radius:10px;padding:4px 10px;font-size:13px;font-weight:700;display:none;max-width:calc(100% - 70px)}
+.climbcard.in{background:#8a2f12}
+.tile{position:relative}.tile.pw::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--zc,transparent)}
+.ovl{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:10px}
+.ovl.on{display:flex}
+#fallOv{background:rgba(160,10,10,.94)}
+.fallbox{text-align:center;color:#fff}.fallbox h2{margin:0;font-size:28px}
+#fallCnt{font-size:110px;font-weight:800;line-height:1}
+#fallOk{border:none;border-radius:16px;background:#fff;color:#a00;font-size:30px;font-weight:800;padding:18px 40px;margin-top:10px}
+.sumbox,.pickbox{background:var(--tile);color:var(--txt);border-radius:14px;padding:12px 14px;max-height:94vh;overflow:auto;width:min(920px,100%)}
+.sumgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin:8px 0}
+.sumgrid div{background:var(--bg);border-radius:9px;padding:5px 8px}.sumgrid small{display:block;color:var(--mut);font-size:11px;text-transform:uppercase}.sumgrid b{font-size:20px}
+.zbar{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}.zbar span{width:34px}.zbar i{height:12px;border-radius:3px;display:block}
+.laps{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.laps td,.laps th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:right}.laps th{color:var(--mut);font-weight:600}
+#pickList{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:8px 0}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
 body.eco .tile b{transition:none}
 @media (max-width:760px){.chips .chip{font-size:0;padding:4px}}
@@ -127,7 +149,7 @@ body.eco .tile b{transition:none}
     </div>
     <div id="banner"></div>
     <span id="pbat"></span>
-    <button id="rec">▶ Démarrer</button>
+    <button class="sbtn" id="lapB">⏱ Tour</button><button class="sbtn" id="endB">■ Fin</button><button id="rec">▶ Démarrer</button>
   </div>
   <div class="main" id="main">
     <!-- 0 · carte + données -->
@@ -136,56 +158,32 @@ body.eco .tile b{transition:none}
         <div id="mapwrap">
           <div id="map"></div>
           <div class="navcard" id="nav"><div class="arr" id="navArr">↰</div><div><b id="navDist">300 m</b><span id="navTxt">Tournez à gauche</span></div></div>
+          <div class="climbcard" id="climb"></div>
+          <canvas id="prof"></canvas>
           <div class="mapbtns">
             <button id="b3d" title="Vue 3D">2D</button><button id="bFly" title="Survol du parcours en 3D">▶</button>
             <button id="bSat" title="Vue satellite">🛰</button>
             <button id="bDark" title="Carte sombre">☾</button>
+            <button id="bProf" title="Profil d'altitude">⛰</button>
             <button id="bCenter" title="Recentrer">◎</button>
           </div>
         </div>
       </div>
-      <div class="grid">
-        <div class="tile big"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
-        <div class="tile pw"><label>Puissance 3 s</label><div class="v"><b data-k="pw3">--</b><u>W</u></div></div>
-        <div class="tile cd"><label>Cadence</label><div class="v"><b data-k="cad">--</b><u>tr/min</u></div></div>
-        <div class="tile hr"><label>Fréq. cardiaque</label><div class="v"><b data-k="hr">--</b><u>bpm</u><span class="zone" data-k="zone">-</span></div></div>
-        <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
-        <div class="tile"><label>Temps</label><div class="v"><b data-k="time">0:00:00</b></div></div>
-        <div class="tile"><label>Dénivelé +</label><div class="v"><b data-k="dp">0</b><u>m</u></div></div>
-      </div>
+      <div class="grid" data-lay="p0"></div>
     </div>
     <!-- 1 · données plein écran -->
     <div class="page" data-name="Données">
-      <div class="grid4">
-        <div class="tile"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
-        <div class="tile pw"><label>Puissance 3 s</label><div class="v"><b data-k="pw3">--</b><u>W</u></div></div>
-        <div class="tile hr"><label>Fréq. cardiaque</label><div class="v"><b data-k="hr">--</b><u>bpm</u></div></div>
-        <div class="tile cd"><label>Cadence</label><div class="v"><b data-k="cad">--</b><u>tr/min</u></div></div>
-        <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
-        <div class="tile"><label>Temps</label><div class="v"><b data-k="time">0:00:00</b></div></div>
-        <div class="tile"><label>Vitesse moy.</label><div class="v"><b data-k="avg">0,0</b><u>km/h</u></div></div>
-        <div class="tile pw"><label>Puissance moy.</label><div class="v"><b data-k="pwavg">--</b><u>W</u></div></div>
-        <div class="tile"><label>Dénivelé +</label><div class="v"><b data-k="dp">0</b><u>m</u></div></div>
-        <div class="tile"><label>Pente</label><div class="v"><b data-k="grade">0 %</b></div></div>
-        <div class="tile"><label>Prochaine direction</label><div class="v"><b data-k="navshort">--</b></div></div>
-        <div class="tile hr"><label>FC moy.</label><div class="v"><b data-k="hravg">--</b><u>bpm</u></div></div>
-      </div>
+      <div class="grid4" data-lay="p1"></div>
     </div>
     <!-- 2 · carte plein écran -->
     <div class="page" data-name="Carte">
       <div class="slot mapfull" id="slot2">
-        <div class="overlay">
-          <div class="tile"><label>Vitesse</label><div class="v"><b data-k="spd">0,0</b><u>km/h</u></div></div>
-          <div class="tile"><label>Distance</label><div class="v"><b data-k="dist">0,00</b><u>km</u></div></div>
-          <div class="tile"><label>Reste (parcours)</label><div class="v"><b data-k="left">--</b><u>km</u></div></div>
-          <div class="tile hr"><label>FC</label><div class="v"><b data-k="hr">--</b><u>bpm</u></div></div>
-        </div>
+        <div class="overlay" data-lay="p2"></div>
       </div>
     </div>
-    <!-- 3 · son -->
     <!-- 3 · capteurs et réglages -->
     <div class="page" data-name="Capteurs et réglages">
-      <div class="setup three">
+      <div class="setup cards">
         <div class="card">
           <h3>Capteurs Bluetooth</h3>
           <div class="srow"><div class="n">Pédales Garmin Rally<small id="sPW">non connecté · puissance + cadence</small></div><span class="bat" id="bPW"></span><button class="btn p" data-connect="pw">Connecter</button></div>
@@ -217,6 +215,44 @@ body.eco .tile b{transition:none}
           <div class="cfg">🔈 <input type="range" id="beepVol" min="0" max="1" step="0.05" value="0.6"> 🔊</div>
           <div class="cfg"><button class="btn" id="beepTest">Tester le bip</button></div>
         </div>
+        <div class="card">
+          <h3>Cartes hors ligne</h3>
+          <div class="cfg"><label><input type="checkbox" id="offPlan" checked> Plan</label><label><input type="checkbox" id="offSat" checked> Satellite</label><label><input type="checkbox" id="offDem" checked> Relief 3D</label></div>
+          <div class="cfg"><button class="btn p" id="offGo">Télécharger la zone du parcours</button><button class="btn" id="offStop" style="display:none">Arrêter</button></div>
+          <div class="note" id="offSt">Chargez un parcours, puis téléchargez sa zone en Wi-Fi avant de partir.</div>
+          <div class="prog"><i id="offBar"></i></div>
+          <div class="cfg"><label><input type="checkbox" id="autoCache" checked> Garder aussi les cartes déjà affichées</label></div>
+          <div class="cfg"><button class="btn d" id="offClear">Vider les cartes enregistrées</button></div>
+          <div class="note">Couloir d'environ 300 m de chaque côté du tracé. Au-delà, ou plus zoomé que les cartes enregistrées, l'appli agrandit la carte disponible.</div>
+        </div>
+        <div class="card">
+          <h3>Sécurité : détection de chute</h3>
+          <div class="cfg"><label><input type="checkbox" id="fallOn"> Activer pendant l'enregistrement</label></div>
+          <div class="cfg">Contacts <input type="tel" class="w" id="fallTo" placeholder="06 12 34 56 78, 07…"></div>
+          <div class="cfg">Votre prénom <input type="text" class="w" id="fallName" placeholder="pour le SMS"></div>
+          <div class="cfg">Sensibilité <select id="fallSens"><option value="3">Forte (3 g)</option><option value="4" selected>Normale (4 g)</option><option value="6">Faible (6 g)</option></select></div>
+          <div class="cfg"><button class="btn" id="fallTest">Tester (sans SMS)</button><button class="btn" id="fallSms">Envoyer un SMS de test</button></div>
+          <div class="note" id="fallNote">Choc fort suivi d'un arrêt de plus de 6 s : compte à rebours de 30 s (alarme + vibration). Sans réponse, un SMS avec votre position GPS part vers vos contacts. N'importe quel bouton de la télécommande annule.</div>
+        </div>
+        <div class="card">
+          <h3>Zones et alertes</h3>
+          <div class="cfg">FTP <input type="number" id="ftp" min="80" max="500" value="220"> W</div>
+          <div class="cfg">Alerte FC <select id="hrAl"><option value="0">Aucune</option><option value="4">Zone 4 et +</option><option value="5">Zone 5</option></select></div>
+          <div class="cfg">Alerte puissance <select id="pwAl"><option value="0">Aucune</option><option value="5">Zone 5 et +</option><option value="6">Zone 6 et +</option><option value="7">Zone 7</option></select></div>
+          <div class="note">Zones de puissance Coggan (Z1 à Z7, en % de la FTP), zones de FC en % de la FC max. Alerte (bip + voix) après 10 s dans la zone, au plus toutes les 2 min.</div>
+          <h3 style="margin-top:12px">Écrans et tours</h3>
+          <div class="cfg"><button class="btn" id="layReset">Réinitialiser les écrans</button></div>
+          <div class="note">Appui long sur une donnée pour la remplacer. Nouveau tour : bouton ⏱ en haut, ou double appui sur la télécommande.</div>
+        </div>
+        <div class="card">
+          <h3>Strava</h3>
+          <div class="cfg">Client ID <input type="text" class="w" id="stId" inputmode="numeric"></div>
+          <div class="cfg">Client Secret <input type="password" class="w" id="stSec"></div>
+          <div class="cfg">Type <select id="stType"><option value="Ride">Vélo</option><option value="EBikeRide" selected>Vélo électrique</option></select></div>
+          <div class="cfg"><button class="btn p" id="stConn">Connecter Strava</button><button class="btn" id="stOff" style="display:none">Déconnecter</button></div>
+          <div class="note" id="stSt">Non connecté.</div>
+          <div class="note">Une seule fois : créez une « application API » sur strava.com/settings/api. Domaine de rappel : <b>localhost</b> pour l'appli Android (ou edouardlecarpentier-pixel.github.io pour la version web). Recopiez ici le Client ID et le Client Secret.</div>
+        </div>
       </div>
     </div>
     <div class="radar"><div class="rtrack" id="rtrack"><div class="rme"></div><div class="rnone" id="rnone">—</div></div></div>
@@ -224,6 +260,9 @@ body.eco .tile b{transition:none}
   </div>
 </div>
 <div id="toast"></div>
+<div class="ovl" id="fallOv"><div class="fallbox"><h2 id="fallH">Chute détectée ?</h2><div id="fallCnt">30</div><p id="fallMsg">Sans réponse, un SMS avec votre position part vers vos contacts.</p><button id="fallOk">Je vais bien</button></div></div>
+<div class="ovl" id="sumOv"><div class="sumbox" id="sumBox"></div></div>
+<div class="ovl" id="pickOv"><div class="pickbox"><h3>Choisir la donnée affichée</h3><div id="pickList"></div><button class="btn" id="pickCancel">Annuler</button></div></div>
 
 <script>
 /* ================= appli Android native (Capacitor) ou navigateur ================= */
@@ -239,22 +278,33 @@ const hav = (a, b) => { const dLa = (b.lat-a.lat)*R, dLo = (b.lon-a.lon)*R;
   const x = Math.sin(dLa/2)**2 + Math.cos(a.lat*R)*Math.cos(b.lat*R)*Math.sin(dLo/2)**2; return 2*6371000*Math.asin(Math.sqrt(x)); };
 const brg = (a, b) => { const y = Math.sin((b.lon-a.lon)*R)*Math.cos(b.lat*R), x = Math.cos(a.lat*R)*Math.sin(b.lat*R) - Math.sin(a.lat*R)*Math.cos(b.lat*R)*Math.cos((b.lon-a.lon)*R); return (Math.atan2(y, x)/R + 360) % 360; };
 const angDiff = (a, b) => ((b - a + 540) % 360) - 180;
+function unpackPts(a){ return (a || []).map(p => Array.isArray(p) ? {t:p[0], lat:p[1], lon:p[2], ele:p[3], hr:p[4], cad:p[5], pw:p[6]} : p); }
+const packPts = a => a.map(p => [p.t, +p.lat.toFixed(6), +p.lon.toFixed(6), p.ele === null || p.ele === undefined ? null : Math.round(p.ele*10)/10, p.hr ?? null, p.cad ?? null, p.pw ?? null]);
+let storeFail = false;
 const store = { get(k, d){ try { const v = localStorage.getItem('vc_' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-                set(k, v){ try { localStorage.setItem('vc_' + k, JSON.stringify(v)); } catch {} } };
+                set(k, v){ try { localStorage.setItem('vc_' + k, JSON.stringify(v)); } catch { if (!storeFail){ storeFail = true; setTimeout(() => toast('Mémoire pleine : la sortie n\'est plus sauvegardée. Videz les cartes enregistrées.', 6000), 0); } } } };
 const fmtDist = m => m >= 1000 ? fmt(m/1000, 1) + ' km' : (m >= 100 ? Math.round(m/50)*50 : Math.max(0, Math.round(m/10)*10)) + ' m';
 
 /* ================= état ================= */
 const S = {
-  rec:'stop', pts:store.get('pts', []),
+  rec:'stop', pts:unpackPts(store.get('pts', [])),
   dist:store.get('dist', 0), moving:store.get('moving', 0), dp:store.get('dp', 0), vmax:store.get('vmax', 0),
   pwSum:store.get('pwSum', 0), pwN:store.get('pwN', 0), hrSum:store.get('hrSum', 0), hrN:store.get('hrN', 0),
   pos:null, spd:0, heading:null, ele:null, eleRef:null, grade:0, gradeBuf:[],
   hr:null, hrT:0, pw:null, pwT:0, pwBuf:[], cad:null, cadT:0, crank:null,
   threats:[], rdT:0, demo:false,
   route:null, rs:null, turns:[], along:0, aIdx:0, offT:0, off:false, routeTotal:0,
+  rse:null, climbs:[], lastFastT:0,
+  laps:store.get('laps', []), lapStart:store.get('lapStart', null),
+  tzHr:store.get('tzHr', [0,0,0,0,0]), tzPw:store.get('tzPw', [0,0,0,0,0,0,0]),
+  npSum:store.get('npSum', 0), npN:store.get('npN', 0), kj:store.get('kj', 0), pwMax:store.get('pwMax', 0), hrMax:store.get('hrMax', 0), pw1:[],
 };
-if (S.pts.length) S.rec = 'pause';
-const opt = { sat:store.get('sat', false), dark:store.get('dark', false), view:store.get('view', store.get('d3',false) ? 1 : 0), eco:store.get('eco', false) };
+if (S.pts.length){
+  const was = store.get('recState', 'stop'), age = Date.now() - store.get('savedAt', 0);
+  S.rec = was === 'run' && age < 20*60000 ? 'run' : 'pause';
+  setTimeout(() => toast(S.rec === 'run' ? `Sortie reprise automatiquement (${fmt(S.dist/1000, 1)} km)` : `Sortie récupérée : ${fmt(S.dist/1000, 1)} km · ▶ Reprendre ou ■ Fin`, 5000), 1500);
+}
+const opt = { autoCache:store.get('autoCache', true), sat:store.get('sat', false), dark:store.get('dark', false), view:store.get('view', store.get('d3',false) ? 1 : 0), eco:store.get('eco', false) };
 
 /* ================= écrans ================= */
 const pages = [...document.querySelectorAll('.page')];
@@ -267,6 +317,7 @@ function setPage(i){
   document.querySelectorAll('#tabs button').forEach((b, k) => b.classList.toggle('on', k === page));
   const slot = page === 2 ? $('#slot2') : page === 0 ? $('#slot0') : null;
   if (slot && $('#mapwrap').parentElement !== slot) slot.prepend($('#mapwrap'));
+  $('#mapwrap').classList.toggle('full', page === 2);
   if (slot && map) setTimeout(() => map.resize(), 30);
 }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setPage(+b.dataset.p));
@@ -275,25 +326,81 @@ document.querySelectorAll('.grid,.grid4,.setup,.radar').forEach(el => {
   el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive:true});
   el.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 60) setPage(page + (dx < 0 ? 1 : -1)); sx = null; });
 });
+let keyT = null;
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  const next = ['Enter',' ','ArrowRight','ArrowDown','PageDown'], prev = ['ArrowLeft','ArrowUp','PageUp'];
-  if (next.includes(e.key)){ e.preventDefault(); setPage(page + 1); }
-  else if (prev.includes(e.key)){ e.preventDefault(); setPage(page - 1); }
+  if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (fallState){ e.preventDefault(); fallCancel(); return; }
+  if (e.repeat) return;
+  if (['MediaPlayPause','l','L'].includes(e.key)){ e.preventDefault(); newLap(); return; }
+  const next = ['Enter',' ','ArrowRight','ArrowDown','PageDown','MediaTrackNext'], prev = ['ArrowLeft','ArrowUp','PageUp','MediaTrackPrevious'];
+  const dir = next.includes(e.key) ? 1 : prev.includes(e.key) ? -1 : 0; if (!dir) return;
+  e.preventDefault();
+  if ($('#sumOv').classList.contains('on') || $('#pickOv').classList.contains('on')) return;
+  // double appui rapide = nouveau tour ; appui simple = écran suivant
+  if (keyT && S.rec === 'run'){ clearTimeout(keyT); keyT = null; newLap(); return; }
+  if (S.rec !== 'run'){ setPage(page + dir); return; }
+  keyT = setTimeout(() => { keyT = null; setPage(page + dir); }, 380);
 });
 document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTimeout(() => b.blur(), 0); });
+
+/* ================= cartes hors ligne : toutes les tuiles passent par vct:// ================= */
+const TPL = {
+  cyclosm:{u:'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', s:['a','b','c'], kb:18},
+  dark:{u:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', s:['a','b','c','d'], kb:22},
+  esri:{u:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', kb:25},
+  ign:{u:'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM_0_19&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', kb:28},
+  dem:{u:'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', kb:90, raw:true},
+};
+const tUrl = (src, z, x, y) => { const t = TPL[src]; return t.u.replace('{s}', t.s ? t.s[(x + y) % t.s.length] : '').replace('{z}', z).replace('{x}', x).replace('{y}', y); };
+const tKey = (src, z, x, y) => `https://vc-cache.local/${src}/${z}/${x}/${y}`;
+let tileCache = null; const cacheReady = (async () => { try { tileCache = await caches.open('vc-tiles-v1'); } catch {} })();
+async function cachedTile(src, z, x, y){ await cacheReady; if (!tileCache) return null; const r = await tileCache.match(tKey(src, z, x, y)); return r ? r.arrayBuffer() : null; }
+async function putTile(src, z, x, y, buf, type){ if (tileCache) try { await tileCache.put(tKey(src, z, x, y), new Response(buf, {headers:{'content-type':type || 'image/png'}})); } catch {} }
+async function netTile(src, z, x, y, signal){
+  const r = await fetch(tUrl(src, z, x, y), {signal, mode:'cors'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return {buf:await r.arrayBuffer(), type:r.headers.get('content-type')};
+}
+// tuile absente hors ligne : agrandir un morceau d'une tuile parente déjà enregistrée
+async function parentTile(src, z, x, y){
+  for (let dz = 1; dz <= 6 && z - dz >= 0; dz++){
+    const buf = await cachedTile(src, z - dz, x >> dz, y >> dz); if (!buf) continue;
+    const n = 1 << dz, sz = 256/n, ox = (x - ((x >> dz) << dz))*sz, oy = (y - ((y >> dz) << dz))*sz;
+    const bmp = await createImageBitmap(new Blob([buf]));
+    const k = bmp.width/256, c = document.createElement('canvas'); c.width = c.height = 256;
+    c.getContext('2d').drawImage(bmp, ox*k, oy*k, sz*k, sz*k, 0, 0, 256, 256);
+    return await new Promise(res => c.toBlob(b => res(b.arrayBuffer()), 'image/jpeg', .9));
+  }
+  return null;
+}
+async function tileFetch(src, z, x, y, signal){
+  const hit = await cachedTile(src, z, x, y); if (hit) return hit;
+  try {
+    const {buf, type} = await netTile(src, z, x, y, signal);
+    if (opt.autoCache) putTile(src, z, x, y, buf.slice(0), type);
+    return buf;
+  } catch (e) {
+    if (signal && signal.aborted) throw e;
+    const up = TPL[src].raw ? null : await parentTile(src, z, x, y);
+    if (up) return up; throw e;
+  }
+}
+if (window.maplibregl) maplibregl.addProtocol('vct', async (params, ac) => {
+  const [src, z, x, y] = params.url.slice(6).split('/');
+  return {data:await tileFetch(src, +z, +x, +y, ac && ac.signal)};
+});
 
 /* ================= carte (MapLibre, 2D / 3D) ================= */
 const sub = ['a','b','c'];
 const style = {
   version:8,
   sources:{
-    cyclosm:{type:'raster', tiles:sub.map(s => `https://${s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png`), tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · CyclOSM'},
-    dark:{type:'raster', tiles:['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`), tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · © CARTO'},
-    esri:{type:'raster', tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize:256, maxzoom:19, attribution:'Imagerie © Esri'},
-    ign:{type:'raster', tiles:['https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM_0_19&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'], tileSize:256, maxzoom:19, attribution:'Photos aériennes © IGN'},
-    dem:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
-    hill:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
+    cyclosm:{type:'raster', tiles:['vct://cyclosm/{z}/{x}/{y}'], tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · CyclOSM'},
+    dark:{type:'raster', tiles:['vct://dark/{z}/{x}/{y}'], tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · © CARTO'},
+    esri:{type:'raster', tiles:['vct://esri/{z}/{x}/{y}'], tileSize:256, maxzoom:19, attribution:'Imagerie © Esri'},
+    ign:{type:'raster', tiles:['vct://ign/{z}/{x}/{y}'], tileSize:256, maxzoom:19, attribution:'Photos aériennes © IGN'},
+    dem:{type:'raster-dem', tiles:['vct://dem/{z}/{x}/{y}'], encoding:'terrarium', tileSize:256, maxzoom:14},
+    hill:{type:'raster-dem', tiles:['vct://dem/{z}/{x}/{y}'], encoding:'terrarium', tileSize:256, maxzoom:14},
     route:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
     track:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
     ahead:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
@@ -411,7 +518,7 @@ function onFix(lat, lon, ele, spdMs, t, head){
   const p = {lat, lon};
   let spd = spdMs;
   if ((spd === null || isNaN(spd)) && lastFix){ const dt = (t - lastFix.t)/1000; spd = dt > 0 ? hav(lastFix, p)/dt : 0; }
-  S.spd = Math.max(0, (spd || 0)*3.6);
+  S.spd = Math.max(0, (spd || 0)*3.6); if (S.spd > 10) S.lastFastT = Date.now();
   if (lastFix && hav(lastFix, p) > 3){ const h = (head !== null && head !== undefined && !isNaN(head)) ? head : brg(lastFix, p); S.heading = S.heading === null ? h : (S.heading + angDiff(S.heading, h)*0.5 + 360) % 360; }
   if (S.rec === 'run' && lastFix){
     const d = hav(lastFix, p), dt = (t - lastFix.t)/1000;
@@ -455,18 +562,447 @@ async function startGPS(){
     {enableHighAccuracy:true, maximumAge:0, timeout:20000});
 }
 
+/* ================= données affichables et écrans personnalisables ================= */
+const FIELDS = {
+  spd:['Vitesse','km/h',''], avg:['Vitesse moy.','km/h',''], vmax:['Vitesse max','km/h',''],
+  pw3:['Puissance 3 s','W','pw'], pwavg:['Puissance moy.','W','pw'], np:['Puissance norm. (NP)','W','pw'], pwzone:['Zone puissance','','pw'],
+  cad:['Cadence','tr/min','cd'],
+  hr:['Fréq. cardiaque','bpm','hr'], hravg:['FC moy.','bpm','hr'], hrzone:['Zone FC','','hr'],
+  dist:['Distance','km',''], time:['Temps','',''], clock:['Heure','',''], kcal:['Calories','kcal',''],
+  dp:['Dénivelé +','m',''], grade:['Pente','',''], ele:['Altitude','m',''],
+  navshort:['Prochaine direction','',''], left:['Reste (parcours)','km',''], climb:['Montée','',''],
+  lap:['Tour n°','',''], laptime:['Temps du tour','',''], lapdist:['Distance du tour','km',''], lapspd:['Vitesse du tour','km/h',''], lappw:['Puissance du tour','W','pw'],
+};
+const LAY0 = {p0:['spd','pw3','cad','hr','dist','time','dp'], p1:['spd','pw3','hr','cad','dist','time','avg','pwavg','dp','grade','navshort','hravg'], p2:['spd','dist','left','hr']};
+let LAY = Object.assign({}, LAY0, store.get('layout', {}));
+function buildTiles(){
+  document.querySelectorAll('[data-lay]').forEach(box => {
+    const lay = box.dataset.lay;
+    box.innerHTML = LAY[lay].map((k, i) => {
+      const [lb, u, c] = FIELDS[k] || FIELDS.spd;
+      return `<div class="tile ${c}${lay === 'p0' && i === 0 ? ' big' : ''}" data-i="${i}"><label>${lb}</label><div class="v"><b data-k="${k}">--</b>${u ? `<u>${u}</u>` : ''}${k === 'hr' && lay === 'p0' ? '<span class="zone" data-k="zone">-</span>' : ''}</div></div>`;
+    }).join('');
+    box.querySelectorAll('.tile').forEach(t => { t.style.pointerEvents = 'auto'; longPress(t, () => openPicker(lay, +t.dataset.i)); });
+  });
+}
+function longPress(el, fn){
+  let tm = null, x0 = 0, y0 = 0;
+  el.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; tm = setTimeout(() => { tm = null; try { navigator.vibrate && navigator.vibrate(30); } catch {} fn(); }, 650); });
+  const stop = () => { clearTimeout(tm); tm = null; };
+  el.addEventListener('pointerup', stop); el.addEventListener('pointercancel', stop);
+  el.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 12) stop(); });
+}
+function openPicker(lay, i){
+  $('#pickList').innerHTML = Object.entries(FIELDS).map(([k, f]) => `<button class="btn${LAY[lay][i] === k ? ' p' : ''}" data-f="${k}">${f[0]}</button>`).join('');
+  $('#pickList').querySelectorAll('button').forEach(b => b.onclick = () => {
+    LAY[lay] = LAY[lay].slice(); LAY[lay][i] = b.dataset.f; store.set('layout', LAY); buildTiles(); $('#pickOv').classList.remove('on'); render();
+  });
+  $('#pickOv').classList.add('on');
+}
+$('#pickCancel').onclick = () => $('#pickOv').classList.remove('on');
+$('#layReset').onclick = () => { LAY = Object.assign({}, LAY0); store.set('layout', {}); buildTiles(); toast('Écrans réinitialisés'); };
+
+/* ================= zones, NP, calories (1 fois par seconde) ================= */
+const ZC = ['#9aa4ae','#3e8ef7','#3ee08f','#ffcf4a','#ff8a3d','#ff4d4d','#b34dff'];
+const pwZone = w => { const r = w/(+$('#ftp').value || 220); return [.55,.75,.90,1.05,1.20,1.50].filter(x => r >= x).length + 1; };
+const hrZone = h => Math.min(5, Math.max(1, Math.ceil((h/(+$('#hrmax').value || 185) - .5)/.1)));
+const alertRun = {hr:0, pw:0, hrT:0, pwT:0};
+function zoneAlert(kind, z, lim, label){
+  if (!lim || z < lim){ alertRun[kind] = 0; return; }
+  if (++alertRun[kind] >= 10 && Date.now() - alertRun[kind + 'T'] > 120000){ alertRun[kind + 'T'] = Date.now(); beep(990, 160, 3); say(`${label} en zone ${z}`); }
+}
+function tick1(){
+  const now = Date.now(), run = S.rec === 'run', moving = S.spd > 2.5 || !$('#autopause').checked;
+  const pwOk = S.pw !== null && now - S.pwT < 4000, hrOk = S.hr !== null && now - S.hrT < 6000;
+  if (run && moving){
+    if (pwOk){
+      S.pw1.push(S.pw); if (S.pw1.length > 30) S.pw1.shift();
+      if (S.pw1.length === 30){ const a = S.pw1.reduce((x, y) => x + y, 0)/30; S.npSum += a**4; S.npN++; }
+      S.kj += S.pw/1000; S.tzPw[pwZone(S.pw) - 1]++; S.pwMax = Math.max(S.pwMax, S.pw);
+    }
+    if (hrOk){ S.tzHr[hrZone(S.hr) - 1]++; S.hrMax = Math.max(S.hrMax, S.hr); }
+  }
+  if (run){
+    zoneAlert('hr', hrOk ? hrZone(S.hr) : 0, +$('#hrAl').value, 'Fréquence cardiaque');
+    zoneAlert('pw', pwOk ? pwZone(S.pw) : 0, +$('#pwAl').value, 'Puissance');
+  }
+  fallTick(now);
+  drawProfile();
+}
+setInterval(tick1, 1000);
+['ftp','hrAl','pwAl'].forEach(id => { const el = $('#' + id); el.value = store.get(id, el.value); el.onchange = () => store.set(id, +el.value); });
+
+/* ================= tours ================= */
+const lapSnap = () => ({mov:S.moving, d:S.dist, pwSum:S.pwSum, pwN:S.pwN, hrSum:S.hrSum, hrN:S.hrN});
+function lapCur(){
+  const a = S.lapStart || lapSnap(), t = S.moving - a.mov, d = S.dist - a.d;
+  return {t, d, spd:t > 0 ? d/t*3.6 : 0, pw:S.pwN > a.pwN ? (S.pwSum - a.pwSum)/(S.pwN - a.pwN) : null, hr:S.hrN > a.hrN ? (S.hrSum - a.hrSum)/(S.hrN - a.hrN) : null};
+}
+const hms = s => { s = Math.round(s); return `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+const ms = s => { s = Math.round(s); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+function newLap(){
+  if (S.rec !== 'run'){ toast('Démarrez la sortie pour compter des tours'); return; }
+  const c = lapCur(); if (c.t < 5) return;
+  S.laps.push(c); S.lapStart = lapSnap(); persist();
+  const n = S.laps.length, mn = Math.floor(c.t/60), sc = Math.round(c.t%60);
+  toast(`Tour ${n} : ${ms(c.t)} · ${fmt(c.d/1000, 2)} km · ${fmt(c.spd, 1)} km/h` + (c.pw ? ` · ${Math.round(c.pw)} W` : ''), 5000);
+  beep(740, 120, 2);
+  say(`Tour ${n} : ${mn ? mn + ' minutes ' + sc : sc + ' secondes'}, ${Math.round(c.spd)} kilomètres heure` + (c.pw ? `, ${Math.round(c.pw)} watts` : ''));
+}
+$('#lapB').onclick = newLap;
+
+/* ================= fin de sortie : résumé + Strava ================= */
+function clearRide(){
+  Object.assign(S, {pts:[], dist:0, moving:0, dp:0, vmax:0, pwSum:0, pwN:0, hrSum:0, hrN:0, eleRef:null, gradeBuf:[], grade:0,
+    laps:[], lapStart:null, tzHr:[0,0,0,0,0], tzPw:[0,0,0,0,0,0,0], npSum:0, npN:0, kj:0, pwMax:0, hrMax:0, pw1:[]});
+  store.set('stUploaded', null); updateTrack(true); persist();
+  if (NATIVE) Native.Filesystem.deleteFile({path:'sortie-en-cours.json', directory:Native.Directory.Data}).catch(() => {});
+}
+const npVal = () => S.npN ? Math.round((S.npSum/S.npN)**.25) : null;
+function zoneBars(arr, title, n){
+  const tot = arr.reduce((a, b) => a + b, 0); if (!tot) return '';
+  return `<h3 style="margin-top:10px">${title}</h3>` + arr.map((v, i) => `<div class="zbar"><span>Z${i + 1}</span><i style="width:${Math.max(1, v/tot*70)}%;background:${ZC[n === 5 ? i + 1 : i]}"></i>${ms(v)} · ${Math.round(v/tot*100)} %</div>`).join('');
+}
+function openSummary(){
+  const box = $('#sumBox'), np = npVal(), ftp = +$('#ftp').value || 220;
+  const st = (l, v) => `<div><small>${l}</small><b>${v}</b></div>`;
+  const ifv = np ? np/ftp : null, tss = np ? Math.round(S.moving*np*ifv/(ftp*3600)*100) : null;
+  const up = store.get('stUploaded', null);
+  box.innerHTML = `<h3>Résumé de la sortie</h3><div class="sumgrid">` +
+    st('Distance', fmt(S.dist/1000, 2) + ' km') + st('Temps', hms(S.moving)) + st('Vitesse moy.', fmt(S.moving ? S.dist/S.moving*3.6 : 0, 1) + ' km/h') + st('Vitesse max', fmt(S.vmax, 1) + ' km/h') +
+    st('Dénivelé +', Math.round(S.dp) + ' m') + st('Puissance moy.', S.pwN ? Math.round(S.pwSum/S.pwN) + ' W' : '--') + st('Puissance NP', np ? np + ' W' : '--') + st('Puissance max', S.pwMax ? S.pwMax + ' W' : '--') +
+    st('FC moy.', S.hrN ? Math.round(S.hrSum/S.hrN) + ' bpm' : '--') + st('FC max', S.hrMax ? S.hrMax + ' bpm' : '--') + st('Calories', S.kj ? Math.round(S.kj) + ' kcal' : '--') + st('Charge (TSS)', tss ?? '--') +
+    `</div>` + zoneBars(S.tzPw, 'Temps par zone de puissance', 7) + zoneBars(S.tzHr, 'Temps par zone de FC', 5) +
+    (S.laps.length ? `<h3 style="margin-top:10px">Tours</h3><table class="laps"><tr><th>#</th><th>Temps</th><th>km</th><th>km/h</th><th>W</th><th>bpm</th></tr>` +
+      S.laps.map((l, i) => `<tr><td>${i + 1}</td><td>${ms(l.t)}</td><td>${fmt(l.d/1000, 2)}</td><td>${fmt(l.spd, 1)}</td><td>${l.pw ? Math.round(l.pw) : '--'}</td><td>${l.hr ? Math.round(l.hr) : '--'}</td></tr>`).join('') + '</table>' : '') +
+    `<div class="cfg" style="margin-top:10px"><button class="btn p" id="sumStrava">${up ? 'Déjà envoyée sur Strava ✓' : 'Envoyer sur Strava'}</button><button class="btn" id="sumGpx">Exporter le GPX</button><button class="btn" id="sumResume">Reprendre la sortie</button><button class="btn d" id="sumNew">Nouvelle sortie (efface)</button></div><div class="note" id="sumSt"></div>`;
+  $('#sumStrava').onclick = () => stravaUpload();
+  $('#sumGpx').onclick = () => exportGpx();
+  $('#sumResume').onclick = () => { $('#sumOv').classList.remove('on'); setRec('run'); };
+  $('#sumNew').onclick = e => {
+    const b = e.target;
+    if (b.dataset.c !== '1'){ b.dataset.c = '1'; b.textContent = store.get('stUploaded', null) ? 'Confirmer' : 'Pas encore sauvegardée : confirmer ?'; return; }
+    clearRide(); setRec('stop'); $('#sumOv').classList.remove('on'); toast('Prêt pour une nouvelle sortie');
+  };
+  $('#sumOv').classList.add('on');
+}
+$('#endB').onclick = () => { if (S.rec === 'run') setRec('pause'); openSummary(); };
+
+/* Strava : OAuth (mobile → velocompteur://localhost) puis envoi du GPX */
+const ST = {get:() => store.get('strava', null), set:v => store.set('strava', v)};
+['stId','stSec','stType'].forEach(id => { const el = $('#' + id); el.value = store.get(id, el.value); el.onchange = () => store.set(id, el.value.trim()); });
+const stRedirect = () => NATIVE ? 'velocompteur://localhost/strava' : location.origin + location.pathname;
+function stStatus(){
+  const t = ST.get();
+  $('#stSt').textContent = t ? `Connecté${t.name ? ' : ' + t.name : ''} ✓` : 'Non connecté.';
+  $('#stConn').style.display = t ? 'none' : ''; $('#stOff').style.display = t ? '' : 'none';
+}
+$('#stConn').onclick = () => {
+  const id = $('#stId').value.trim(); if (!id || !$('#stSec').value.trim()){ toast('Renseignez le Client ID et le Client Secret Strava'); return; }
+  persist();
+  const url = `https://www.strava.com/oauth/${NATIVE ? 'mobile/' : ''}authorize?client_id=${encodeURIComponent(id)}&redirect_uri=${encodeURIComponent(stRedirect())}&response_type=code&approval_prompt=auto&scope=activity:write,read`;
+  if (NATIVE) Native.AppLauncher.openUrl({url}).catch(e => toast('Strava : ' + (e.message || e))); else location.href = url;
+};
+$('#stOff').onclick = () => { ST.set(null); stStatus(); toast('Strava déconnecté'); };
+async function stToken(body){
+  const r = await fetch('https://www.strava.com/oauth/token', {method:'POST', body:new URLSearchParams(Object.assign({client_id:$('#stId').value.trim(), client_secret:$('#stSec').value.trim()}, body))});
+  const j = await r.json(); if (!r.ok || !j.access_token) throw new Error(j.message || 'refus de Strava');
+  const old = ST.get() || {};
+  ST.set({access:j.access_token, refresh:j.refresh_token, exp:j.expires_at, name:(j.athlete && j.athlete.firstname) || old.name || ''});
+}
+async function stCode(code, scope){
+  if (scope && !scope.includes('activity:write')){ toast('Autorisez « Importer vos activités » dans Strava', 5000); return; }
+  try { await stToken({code, grant_type:'authorization_code'}); stStatus(); toast('Strava connecté ✓'); } catch (e) { toast('Strava : ' + e.message, 5000); }
+}
+async function stAccess(){
+  const t = ST.get(); if (!t) throw new Error('connectez Strava dans les réglages');
+  if (t.exp*1000 - Date.now() < 120000) await stToken({refresh_token:t.refresh, grant_type:'refresh_token'});
+  return ST.get().access;
+}
+async function stravaUpload(){
+  const say2 = m => { const el = $('#sumSt'); if (el) el.textContent = m; toast(m, 4000); };
+  if (!S.pts.length){ say2('Aucun point enregistré'); return; }
+  if (store.get('stUploaded', null) && !confirm2('stravaAgain')) return;
+  try {
+    say2('Envoi vers Strava…');
+    const tok = await stAccess(), fd = new FormData(), when = new Date(S.pts[0].t);
+    fd.append('file', new Blob([buildGpx()], {type:'application/gpx+xml'}), 'sortie.gpx');
+    fd.append('data_type', 'gpx'); fd.append('external_id', 'velocompteur-' + S.pts[0].t);
+    fd.append('name', `Sortie vélo du ${when.toLocaleDateString('fr-FR')}`); fd.append('description', 'Enregistrée avec VéloCompteur');
+    let r = await fetch('https://www.strava.com/api/v3/uploads', {method:'POST', headers:{Authorization:'Bearer ' + tok}, body:fd});
+    let j = await r.json(); if (!r.ok) throw new Error(j.message || ('HTTP ' + r.status));
+    for (let i = 0; i < 15 && !j.activity_id && !j.error; i++){
+      await new Promise(res => setTimeout(res, 2000));
+      j = await (await fetch('https://www.strava.com/api/v3/uploads/' + j.id, {headers:{Authorization:'Bearer ' + tok}})).json();
+    }
+    if (j.error) throw new Error(j.error);
+    if (!j.activity_id){ say2('Envoyée : Strava est encore en train de la traiter.'); store.set('stUploaded', true); return; }
+    if ($('#stType').value === 'EBikeRide')
+      await fetch('https://www.strava.com/api/v3/activities/' + j.activity_id, {method:'PUT', headers:{Authorization:'Bearer ' + tok, 'Content-Type':'application/json'}, body:JSON.stringify({sport_type:'EBikeRide'})}).catch(() => {});
+    store.set('stUploaded', j.activity_id); say2('Activité créée sur Strava ✓');
+    const b = $('#sumStrava'); if (b) b.textContent = 'Déjà envoyée sur Strava ✓';
+  } catch (e) { say2('Strava : ' + e.message + ' · le GPX reste exportable'); }
+}
+const conf = {}; function confirm2(k){ if (conf[k] && Date.now() - conf[k] < 5000) return true; conf[k] = Date.now(); toast('Déjà envoyée : appuyez encore pour renvoyer'); return false; }
+// retour d'autorisation
+(function(){
+  const q = new URLSearchParams(location.search);
+  if (q.get('code') && q.get('scope') !== null){ history.replaceState(null, '', location.pathname); stCode(q.get('code'), q.get('scope')); }
+  else if (q.get('error')){ history.replaceState(null, '', location.pathname); toast('Strava : autorisation refusée'); }
+  if (NATIVE && Native.App) Native.App.addListener('appUrlOpen', ev => {
+    try { const u = new URL(ev.url); if (u.searchParams.get('code')) stCode(u.searchParams.get('code'), u.searchParams.get('scope') || ''); else toast('Strava : autorisation refusée'); } catch {}
+  });
+  stStatus();
+})();
+
+/* ================= détection de chute ================= */
+let fallArm = null, fallState = null;
+['fallOn','fallTo','fallName','fallSens'].forEach(id => { const el = $('#' + id); const v = store.get(id, el.type === 'checkbox' ? el.checked : el.value); if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  el.onchange = () => { store.set(id, el.type === 'checkbox' ? el.checked : el.value.trim()); if (id === 'fallOn' && el.checked) fallPrepare(); }; });
+function fallPrepare(){
+  if (!$('#fallTo').value.trim()) toast('Ajoutez au moins un numéro de contact', 4000);
+  if (NATIVE && Native.SmsSend) Native.SmsSend.requestPerm().then(r => { if (!r.granted) toast('Autorisez l\'envoi de SMS pour l\'alerte chute', 5000); }).catch(() => {});
+  if (!NATIVE) $('#fallNote').textContent = 'Version web : le SMS s\'ouvre pré-rempli mais doit être envoyé à la main. Utilisez l\'appli Android pour un envoi automatique.';
+}
+addEventListener('devicemotion', e => {
+  if (!$('#fallOn').checked || S.rec !== 'run' || fallState || fallArm) return;
+  const a = e.accelerationIncludingGravity; if (!a || a.x === null) return;
+  const g = Math.hypot(a.x, a.y, a.z)/9.81;
+  if (g > +$('#fallSens').value && Date.now() - S.lastFastT < 6000) fallArm = {t:Date.now(), g};
+});
+function fallTick(now){
+  if (fallArm && !fallState){
+    const dt = now - fallArm.t;
+    if (S.spd > 6 && dt > 2000) fallArm = null;          // on roule encore : simple choc (nid-de-poule, trottoir)
+    else if (dt > 6000 && S.spd < 3) fallStart(30, false);
+    else if (dt > 15000) fallArm = null;
+  }
+  if (fallState){
+    const left = Math.max(0, Math.ceil((fallState.end - now)/1000));
+    $('#fallCnt').textContent = fallState.sent ? '✓' : left;
+    if (!fallState.sent){
+      beep(1200, 250, 2); try { navigator.vibrate && navigator.vibrate([400, 150, 400]); } catch {}
+      if (left === 0) fallSend(fallState.test);
+    }
+  }
+}
+function fallStart(sec, test){
+  fallArm = null; fallState = {end:Date.now() + sec*1000, test, sent:false};
+  $('#fallH').textContent = test ? 'Test : chute détectée ?' : 'Chute détectée ?';
+  $('#fallMsg').textContent = test ? 'Test : aucun SMS ne sera envoyé.' : 'Sans réponse, un SMS avec votre position part vers vos contacts.';
+  $('#fallOk').textContent = 'Je vais bien'; $('#fallOv').classList.add('on');
+  say('Chute détectée ? Appuyez sur je vais bien.');
+}
+function fallMsg(kind){
+  const p = S.pos, who = $('#fallName').value.trim() || 'le cycliste';
+  const where = p ? ` Position : https://maps.google.com/?q=${p.lat.toFixed(6)},${p.lon.toFixed(6)}` : ' Position GPS inconnue.';
+  const h = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  if (kind === 'test') return `[TEST] VéloCompteur : ceci est un test de l'alerte chute de ${who}.${where}`;
+  if (kind === 'ok') return `VéloCompteur : fausse alerte, ${who} va bien (${h}).`;
+  return `⚠ VéloCompteur : chute possible de ${who} à ${h}, pas de réponse depuis 30 s.${where}`;
+}
+async function smsSend(text){
+  const to = $('#fallTo').value.split(/[,;]/).map(x => x.replace(/[^\d+]/g, '')).filter(Boolean);
+  if (!to.length) throw new Error('aucun contact');
+  if (NATIVE && Native.SmsSend){ for (const n of to) await Native.SmsSend.send({to:n, text}); return 'auto'; }
+  location.href = `sms:${to.join(',')}?body=${encodeURIComponent(text)}`; return 'manual';
+}
+async function fallSend(test){
+  fallState.sent = true;
+  if (test){ $('#fallMsg').textContent = 'Test terminé : en vrai, le SMS serait parti maintenant.'; $('#fallOk').textContent = 'Fermer'; return; }
+  try {
+    const m = await smsSend(fallMsg('alert'));
+    $('#fallMsg').textContent = m === 'auto' ? 'SMS d\'alerte envoyé avec votre position.' : 'Envoyez le SMS qui vient de s\'ouvrir.';
+    say('Alerte envoyée');
+  } catch (e) { $('#fallMsg').textContent = 'Échec de l\'envoi du SMS : ' + (e.message || e); }
+  $('#fallOk').textContent = 'Je vais bien (prévenir mes contacts)';
+}
+function fallCancel(){
+  if (!fallState) return;
+  const wasSent = fallState.sent && !fallState.test;
+  fallState = null; $('#fallOv').classList.remove('on');
+  if (wasSent) smsSend(fallMsg('ok')).then(() => toast('Contacts prévenus : fausse alerte')).catch(() => {});
+  else toast('Alerte annulée');
+}
+$('#fallOk').onclick = fallCancel;
+$('#fallTest').onclick = () => { audioCtx(); fallStart(10, true); };
+$('#fallSms').onclick = () => smsSend(fallMsg('test')).then(m => toast(m === 'auto' ? 'SMS de test envoyé' : 'Envoyez le SMS qui vient de s\'ouvrir')).catch(e => toast('SMS : ' + (e.message || e), 5000));
+if ($('#fallOn').checked && !NATIVE) $('#fallNote').textContent = 'Version web : le SMS s\'ouvre pré-rempli mais doit être envoyé à la main. Utilisez l\'appli Android pour un envoi automatique.';
+
+/* ================= téléchargement des cartes du parcours ================= */
+const lon2x = (lon, z) => Math.floor((lon + 180)/360*2**z);
+const lat2y = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat*R) + 1/Math.cos(lat*R))/Math.PI)/2*2**z);
+function routeTiles(z0, z1){
+  const out = [];
+  for (let z = z0; z <= z1; z++){
+    const seen = new Set();
+    for (let k = 0; k < S.rs.length; k += 5){
+      const x = lon2x(S.rs[k].lon, z), y = lat2y(S.rs[k].lat, z);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++){ const id = (x + dx) + '/' + (y + dy); if (!seen.has(id)){ seen.add(id); out.push([z, x + dx, y + dy]); } }
+    }
+  }
+  return out;
+}
+const inFrance = () => S.rs && S.rs.every((p, i) => i % 20 || (p.lat > 41 && p.lat < 51.5 && p.lon > -5.6 && p.lon < 9.8));
+function offJobs(){
+  if (!S.rs) return [];
+  const jobs = [], add = (src, z0, z1) => routeTiles(z0, z1).forEach(t => jobs.push([src, ...t]));
+  if ($('#offPlan').checked) add(opt.dark ? 'dark' : 'cyclosm', 10, 17);
+  if ($('#offSat').checked){ if (inFrance()){ add('ign', 10, 17); add('esri', 10, 13); } else add('esri', 10, 17); }
+  if ($('#offDem').checked) add('dem', 9, 14);
+  return jobs;
+}
+function offEstimate(){
+  if (!S.rs) return 'Chargez d\'abord un parcours GPX.';
+  const j = offJobs(), mb = j.reduce((a, t) => a + TPL[t[0]].kb, 0)/1024;
+  return `Zone du parcours : ${j.length} tuiles, environ ${Math.round(mb)} Mo.`;
+}
+let offRun = null;
+$('#offGo').onclick = async () => {
+  if (!S.rs){ toast('Chargez d\'abord un parcours GPX'); return; }
+  await cacheReady; if (!tileCache){ toast('Stockage indisponible sur cet appareil'); return; }
+  const jobs = offJobs(); let done = 0, fail = 0, got = 0;
+  offRun = {stop:false}; const me = offRun;
+  $('#offGo').style.display = 'none'; $('#offStop').style.display = '';
+  const upd = () => { $('#offSt').textContent = `Téléchargement : ${done}/${jobs.length}` + (fail ? ` · ${fail} indisponibles` : ''); $('#offBar').style.width = (done/jobs.length*100) + '%'; };
+  let i = 0;
+  const worker = async () => {
+    while (i < jobs.length && !me.stop){
+      const [src, z, x, y] = jobs[i++];
+      try {
+        if (!(await cachedTile(src, z, x, y))){ const {buf, type} = await netTile(src, z, x, y); await putTile(src, z, x, y, buf, type); got += buf.byteLength; }
+      } catch { fail++; }
+      done++; if (done % 10 === 0) upd();
+    }
+  };
+  await Promise.all([1,2,3,4].map(worker));
+  upd(); $('#offGo').style.display = ''; $('#offStop').style.display = 'none'; offRun = null;
+  $('#offSt').textContent = me.stop ? `Arrêté à ${done}/${jobs.length}.` : `Cartes du parcours enregistrées ✓ (${Math.round(got/1048576)} Mo téléchargés${fail ? `, ${fail} tuiles indisponibles` : ''}).`;
+  offUsage();
+};
+$('#offStop').onclick = () => { if (offRun) offRun.stop = true; };
+$('#offClear').onclick = async e => {
+  const b = e.target; if (b.dataset.c !== '1'){ b.dataset.c = '1'; b.textContent = 'Confirmer'; setTimeout(() => { b.dataset.c = ''; b.textContent = 'Vider les cartes enregistrées'; }, 4000); return; }
+  try { await caches.delete('vc-tiles-v1'); tileCache = await caches.open('vc-tiles-v1'); } catch {}
+  b.dataset.c = ''; b.textContent = 'Vider les cartes enregistrées'; toast('Cartes enregistrées supprimées'); offUsage();
+};
+['offPlan','offSat','offDem'].forEach(id => { const el = $('#' + id); el.checked = store.get(id, el.checked); el.onchange = () => { store.set(id, el.checked); $('#offSt').textContent = offEstimate(); }; });
+$('#autoCache').checked = opt.autoCache; $('#autoCache').onchange = e => { opt.autoCache = e.target.checked; store.set('autoCache', opt.autoCache); };
+async function offUsage(){ try { const u = await navigator.storage.estimate(); $('#offSt').textContent += ` Espace utilisé par l'appli : ${Math.round(u.usage/1048576)} Mo.`; } catch {} }
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+
+/* ================= altitude du parcours, profil et montées ================= */
+async function demElev(rs){
+  const z = 12, n = 2**z, tiles = {}, out = [];
+  for (const p of rs){
+    const xf = (p.lon + 180)/360*n, yf = (1 - Math.log(Math.tan(p.lat*R) + 1/Math.cos(p.lat*R))/Math.PI)/2*n, x = Math.floor(xf), y = Math.floor(yf), k = x + '/' + y;
+    if (!(k in tiles)){
+      tiles[k] = null;
+      try {
+        const bmp = await createImageBitmap(new Blob([await tileFetch('dem', z, x, y)]));
+        const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d', {willReadFrequently:true});
+        g.drawImage(bmp, 0, 0, 256, 256); tiles[k] = g.getImageData(0, 0, 256, 256).data;
+      } catch {}
+    }
+    const d = tiles[k]; if (!d){ out.push(null); continue; }
+    const i = (Math.min(255, Math.floor((yf - y)*256))*256 + Math.min(255, Math.floor((xf - x)*256)))*4;
+    out.push(d[i]*256 + d[i + 1] + d[i + 2]/256 - 32768);
+  }
+  return out;
+}
+async function routeElevation(rs){
+  let el = rs.map(p => p.ele);
+  if (el.filter(v => v !== null && isFinite(v)).length < rs.length*0.8){
+    el = await demElev(rs);
+    if (rs !== S.rs) return;
+    if (el.filter(v => v !== null).length < rs.length*0.8){ S.rse = null; return; }
+  }
+  // trous comblés puis lissage sur ~100 m
+  let last = el.find(v => v !== null && isFinite(v)) ?? 0; el = el.map(v => (v !== null && isFinite(v)) ? (last = v) : last);
+  const sm = el.map((_, i) => { let a = 0, c = 0; for (let j = Math.max(0, i - 5); j <= Math.min(el.length - 1, i + 5); j++){ a += el[j]; c++; } return a/c; });
+  S.rse = sm; S.climbs = findClimbs(sm, rs);
+  let gain = 0; for (let i = 1; i < sm.length; i++) if (sm[i] > sm[i - 1]) gain += sm[i] - sm[i - 1];
+  S.routeGain = gain;
+  if (S.climbs.length || gain > 50) toast(`Dénivelé du parcours : +${Math.round(gain)} m · ${S.climbs.length} montée${S.climbs.length > 1 ? 's' : ''}`, 4000);
+  if (store.get('prof', true)) $('#prof').style.display = 'block';
+  $('#bProf').classList.toggle('on', $('#prof').style.display === 'block');
+}
+function findClimbs(e, rs){
+  const out = []; let i = 0; const n = e.length;
+  while (i < n - 1){
+    let s = i, top = i, j = i + 1;
+    for (; j < n; j++){
+      if (e[j] > e[top]) top = j;
+      if (top === s && e[j] < e[s]){ s = j; top = j; }
+      if (e[top] - e[j] > 10) break;
+    }
+    const gain = e[top] - e[s], len = rs[top].d - rs[s].d;
+    if (gain >= 20 && len >= 300 && gain/len >= 0.03) out.push({s, e:top, d0:rs[s].d, d1:rs[top].d, gain, len, grade:gain/len*100, said:{}});
+    i = Math.max(i + 1, top > s ? top : j);
+  }
+  return out;
+}
+const gradeCol = g => g < -2 ? '#6c8fb3' : g < 3 ? '#3ecf72' : g < 6 ? '#ffd23f' : g < 9 ? '#ff8a3d' : g < 12 ? '#ff4d4d' : '#b0174a';
+function climbUpdate(){
+  const card = $('#climb'); let txt = '', cls = '';
+  if (S.climbs.length && !S.off){
+    const a = S.along, cur = S.climbs.find(c => a >= c.d0 && a < c.d1), nx = S.climbs.find(c => c.d0 > a);
+    if (cur){
+      const i = S.aIdx, left = cur.d1 - a, up = S.rse[cur.e] - S.rse[i], g = left > 20 ? up/left*100 : 0;
+      txt = `⛰ Montée : reste ${fmtDist(left)} · +${Math.max(0, Math.round(up))} m · ${fmt(g, 1)} %`; cls = 'in';
+      setK('climb', `${fmtDist(left)} · ${fmt(g, 0)} %`);
+      if (!cur.said.start){ cur.said.start = cur.said.soon = 1; say(`Début de la montée : ${fmtDist(cur.len).replace(',', ' virgule ')} à ${Math.round(cur.grade)} pour cent`); }
+    } else if (nx && nx.d0 - a < 2000){
+      txt = `⛰ Dans ${fmtDist(nx.d0 - a)} : ${fmtDist(nx.len)} à ${fmt(nx.grade, 1)} % (+${Math.round(nx.gain)} m)`;
+      setK('climb', `dans ${fmtDist(nx.d0 - a)}`);
+      if (nx.d0 - a < 600 && !nx.said.soon){ nx.said.soon = 1; say(`Montée dans ${Math.round((nx.d0 - a)/50)*50} mètres : ${fmtDist(nx.len).replace(',', ' virgule ')} à ${Math.round(nx.grade)} pour cent`); }
+    } else setK('climb', nx ? `dans ${fmtDist(nx.d0 - a)}` : '--');
+  } else setK('climb', '--');
+  card.style.display = txt ? 'block' : 'none'; card.textContent = txt; card.className = 'climbcard ' + cls;
+}
+function drawProfile(){
+  const cv = $('#prof'); if (!S.rse || cv.style.display !== 'block' || !cv.offsetWidth) return;
+  const W = cv.offsetWidth, H = cv.offsetHeight, dpr = devicePixelRatio || 1;
+  if (cv.width !== Math.round(W*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const a = S.pos ? S.along : 0, from = Math.max(0, a - 500), to = Math.min(S.routeTotal, from + 10000);
+  const i0 = Math.floor(from/10), i1 = Math.min(S.rse.length - 1, Math.ceil(to/10));
+  if (i1 - i0 < 3) return;
+  let lo = Infinity, hi = -Infinity; for (let i = i0; i <= i1; i++){ lo = Math.min(lo, S.rse[i]); hi = Math.max(hi, S.rse[i]); }
+  if (hi - lo < 40){ const m = (hi + lo)/2; lo = m - 20; hi = m + 20; }
+  const top = 14, bot = H - 4, X = d => (d - from)/(to - from)*W, Y = e => bot - (e - lo)/(hi - lo)*(bot - top);
+  for (let px = 0; px < W; px++){
+    const i = Math.min(i1, i0 + Math.floor(px/W*(i1 - i0))), j = Math.min(S.rse.length - 1, i + 5);
+    const gr = (S.rse[j] - S.rse[i])/Math.max(10, (j - i)*10)*100;
+    g.fillStyle = gradeCol(gr); g.fillRect(px, Y(S.rse[i]), 1, bot - Y(S.rse[i]));
+  }
+  g.fillStyle = '#fff'; g.fillRect(X(a) - 1, top - 4, 2, bot - top + 4);
+  g.font = '600 11px system-ui'; g.fillStyle = '#e6eef5';
+  g.fillText(`${Math.round(hi)} m`, 4, 11); g.fillText(`${fmt((to - a)/1000, 0)} km`, W - 38, 11);
+  if (S.pos){ let up = 0; for (let i = S.aIdx + 1; i < S.rse.length; i++) if (S.rse[i] > S.rse[i - 1]) up += S.rse[i] - S.rse[i - 1]; g.fillText(`reste +${Math.round(up)} m`, 70, 11); }
+}
+$('#bProf').onclick = () => {
+  if (!S.rse){ toast(S.rs ? 'Altitude du parcours indisponible' : 'Chargez un parcours GPX'); return; }
+  const on = $('#prof').style.display !== 'block'; $('#prof').style.display = on ? 'block' : 'none'; $('#bProf').classList.toggle('on', on); store.set('prof', on);
+};
+
+/* application web : fonctionne hors ligne une fois ouverte */
+if (!NATIVE && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+
 /* ================= parcours et guidage virage par virage ================= */
 $('#gpxIn').onclick = () => $('#gpxFile').click();
 $('#gpxFile').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
-  const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => ({lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon')})).filter(p => isFinite(p.lat) && isFinite(p.lon));
+  const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => { const e = n.querySelector('ele'); return {lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon'), ele:e ? +e.textContent : null}; }).filter(p => isFinite(p.lat) && isFinite(p.lon));
   if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
   setRoute(pts); store.set('route', pts);
   toast(`Parcours chargé : ${fmt(S.routeTotal/1000, 1)} km, ${S.turns.length} changements de direction`, 4000);
+  $('#offSt').textContent = offEstimate();
   e.target.value = '';
 };
-$('#routeClear').onclick = () => { S.route = S.rs = null; S.turns = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
+$('#routeClear').onclick = () => { S.route = S.rs = S.rse = null; S.turns = []; S.climbs = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
 function setRoute(pts){
   S.route = pts;
   // ré-échantillonnage tous les 10 m
@@ -474,10 +1010,11 @@ function setRoute(pts){
   for (let i = 1; i < pts.length; i++){
     const a = pts[i-1], b = pts[i], seg = hav(a, b); if (seg === 0) continue;
     let pos = 10 - carry;
-    while (pos <= seg){ const f = pos/seg; rs.push({lat:a.lat + (b.lat - a.lat)*f, lon:a.lon + (b.lon - a.lon)*f, d:acc + pos}); pos += 10; }
+    const ea = a.ele ?? null, eb = b.ele ?? null;
+    while (pos <= seg){ const f = pos/seg; rs.push({lat:a.lat + (b.lat - a.lat)*f, lon:a.lon + (b.lon - a.lon)*f, d:acc + pos, ele:ea !== null && eb !== null ? ea + (eb - ea)*f : null}); pos += 10; }
     carry = seg - (pos - 10); acc += seg;
   }
-  const last = pts[pts.length - 1]; rs.push({lat:last.lat, lon:last.lon, d:acc});
+  const last = pts[pts.length - 1]; rs.push({lat:last.lat, lon:last.lon, d:acc, ele:last.ele ?? null}); rs[0].ele = pts[0].ele ?? null;
   S.rs = rs; S.routeTotal = acc; S.aIdx = 0; S.along = 0; S.off = false; S.offT = 0;
   // détection des virages : changement de cap sur ±30 m
   const W = 3, cand = [];
@@ -490,6 +1027,7 @@ function setRoute(pts){
   for (const c of cand){ if (grp.length && c.i - grp[grp.length - 1].i > 2) flush(); grp.push(c); }
   flush();
   S.turns = turns.filter((t, k) => k === 0 || t.d - turns[k - 1].d > 30).map(t => ({...t, said:{}}));
+  S.rse = null; S.climbs = []; routeElevation(rs);
   setRouteLayer();
   if (styleReady()){
     const b = new maplibregl.LngLatBounds(); rs.forEach(p => b.extend([p.lon, p.lat]));
@@ -516,6 +1054,7 @@ function navUpdate(){
   for (let i = from; i <= to; i++){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } }
   if (bd > 120){ for (let i = 0; i < S.rs.length; i += 2){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } } }
   S.aIdx = best; S.along = S.rs[best].d; if (!fly) updateAhead();
+  climbUpdate();
   const now = Date.now();
   if (bd > 50){ if (!S.offT) S.offT = now; if (!S.off && now - S.offT > 8000){ S.off = true; say('Vous avez quitté le parcours'); } }
   else { if (S.off && bd < 30){ S.off = false; say('Parcours retrouvé'); } if (bd < 30) S.offT = 0; }
@@ -716,21 +1255,44 @@ function setRec(st){
   S.rec = st; const b = $('#rec');
   b.className = st === 'run' ? 'run' : st === 'pause' ? 'pause' : '';
   b.textContent = st === 'run' ? '❚❚ Pause' : st === 'pause' ? '▶ Reprendre' : '▶ Démarrer';
-  if (st === 'run'){ wake(); beep(660, 90); }
+  if (st === 'run'){ wake(); beep(660, 90); if (!S.lapStart) S.lapStart = lapSnap(); }
+  $('#lapB').style.display = st === 'run' ? 'block' : 'none'; $('#endB').style.display = st === 'pause' ? 'block' : 'none';
+  persist();
 }
 $('#rec').onclick = () => { audioCtx(); setRec(S.rec === 'run' ? 'pause' : 'run'); };
 async function wake(){ if (NATIVE) return; try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {} }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.rec === 'run') wake(); });
-function persist(){ for (const k of ['pts','dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN']) store.set(k, S[k]); }
-setInterval(persist, 15000);
+const PKEYS = ['dist','moving','dp','vmax','pwSum','pwN','hrSum','hrN','laps','lapStart','tzHr','tzPw','npSum','npN','kj','pwMax','hrMax'];
+function persist(){
+  store.set('pts', packPts(S.pts)); for (const k of PKEYS) store.set(k, S[k]);
+  store.set('recState', S.rec); store.set('savedAt', Date.now());
+}
+let lastBackup = 0;
+function backupNative(){   // copie de secours dans les fichiers de l'appli (survit à un plantage ou une mise à jour)
+  if (!NATIVE || !S.pts.length || Date.now() - lastBackup < 60000) return; lastBackup = Date.now();
+  const o = {pts:packPts(S.pts), rec:S.rec, savedAt:Date.now()}; for (const k of PKEYS) o[k] = S[k];
+  Native.Filesystem.writeFile({path:'sortie-en-cours.json', directory:Native.Directory.Data, data:JSON.stringify(o), encoding:Native.Encoding.UTF8}).catch(() => {});
+}
+async function restoreNative(){
+  if (!NATIVE || S.pts.length) return;
+  try {
+    const r = await Native.Filesystem.readFile({path:'sortie-en-cours.json', directory:Native.Directory.Data, encoding:Native.Encoding.UTF8});
+    const o = JSON.parse(r.data); if (!o.pts || !o.pts.length) return;
+    S.pts = unpackPts(o.pts); for (const k of PKEYS) if (o[k] !== undefined) S[k] = o[k];
+    setRec(o.rec === 'run' && Date.now() - o.savedAt < 20*60000 ? 'run' : 'pause'); updateTrack(true);
+    toast(`Sortie récupérée depuis la sauvegarde : ${fmt(S.dist/1000, 1)} km`, 5000);
+  } catch {}
+}
+setInterval(() => { if (S.rec !== 'stop'){ persist(); backupNative(); } }, 10000);
+addEventListener('pagehide', persist);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S.rec !== 'stop'){ persist(); lastBackup = 0; backupNative(); } });
 $('#reset').onclick = () => {
   const b = $('#reset');
   if (b.dataset.c !== '1'){ b.dataset.c = '1'; b.textContent = 'Confirmer l\'effacement'; setTimeout(() => { b.dataset.c = ''; b.textContent = 'Effacer la sortie'; }, 4000); return; }
-  Object.assign(S, {pts:[], dist:0, moving:0, dp:0, vmax:0, pwSum:0, pwN:0, hrSum:0, hrN:0, eleRef:null, gradeBuf:[], grade:0});
-  updateTrack(true); persist(); setRec('stop'); toast('Sortie effacée'); b.dataset.c = ''; b.textContent = 'Effacer la sortie';
+  clearRide();
+  setRec('stop'); toast('Sortie effacée'); b.dataset.c = ''; b.textContent = 'Effacer la sortie';
 };
-$('#gpxOut').onclick = () => {
-  if (!S.pts.length){ toast('Aucun point enregistré'); return; }
+function buildGpx(){
   const no = n => n === null || n === undefined;
   let x = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="VeloCompteur" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">\n<metadata><time>${new Date(S.pts[0].t).toISOString()}</time></metadata>\n<trk><name>Sortie vélo</name><type>cycling</type><trkseg>\n`;
   for (const p of S.pts){
@@ -739,6 +1301,12 @@ $('#gpxOut').onclick = () => {
     x += (ext ? `<extensions>${ext}</extensions>` : '') + '</trkpt>\n';
   }
   x += '</trkseg></trk>\n</gpx>';
+  return x;
+}
+$('#gpxOut').onclick = () => exportGpx();
+function exportGpx(){
+  if (!S.pts.length){ toast('Aucun point enregistré'); return; }
+  const x = buildGpx();
   const fname = 'sortie-' + new Date(S.pts[0].t).toISOString().slice(0,16).replace(/[:T]/g, '-') + '.gpx';
   if (NATIVE){
     Native.Filesystem.writeFile({path:fname, data:x, directory:Native.Directory.Cache, encoding:Native.Encoding.UTF8})
@@ -749,7 +1317,7 @@ $('#gpxOut').onclick = () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], {type:'application/gpx+xml'}));
   a.download = fname; a.click();
   toast('Fichier GPX exporté : importez-le dans Strava');
-};
+}
 
 /* ================= mode démo ================= */
 let demoT = null, demoA = 0, demoAlong = 0, demoCar = null, demoNext = 5;
@@ -794,10 +1362,16 @@ function render(){
   setK('spd', fmt(S.spd, 1));
   S.pwBuf = S.pwBuf.filter(x => now - x.t < 3000);
   const fresh = (t, ms = 4000) => now - t < ms;
-  setK('pw3', S.pwBuf.length && fresh(S.pwT) ? String(Math.round(S.pwBuf.reduce((a, x) => a + x.w, 0)/S.pwBuf.length)) : '--');
+  const pw3 = S.pwBuf.length && fresh(S.pwT) ? Math.round(S.pwBuf.reduce((a, x) => a + x.w, 0)/S.pwBuf.length) : null;
+  setK('pw3', pw3 === null ? '--' : String(pw3));
+  const pz = pw3 === null ? 0 : pwZone(pw3); setK('pwzone', pz ? 'Z' + pz : '--');
+  if (pz !== render.pz){ render.pz = pz; document.querySelectorAll('.tile.pw').forEach(t => t.style.setProperty('--zc', pz ? ZC[pz - 1] : 'transparent')); }
+  setK('np', npVal() ? String(npVal()) : '--'); setK('kcal', S.kj ? String(Math.round(S.kj)) : '--'); setK('vmax', fmt(S.vmax, 1));
+  setK('clock', d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0')); setK('ele', S.ele !== null && S.ele !== undefined ? String(Math.round(S.ele)) : '--');
+  const lc = lapCur(); setK('lap', String(S.laps.length + 1)); setK('laptime', ms(lc.t)); setK('lapdist', fmt(lc.d/1000, 2)); setK('lapspd', fmt(lc.spd, 1)); setK('lappw', lc.pw ? String(Math.round(lc.pw)) : '--');
   setK('cad', S.cad !== null && fresh(S.cadT) ? String(S.cad) : '--');
   const hrOk = S.hr !== null && fresh(S.hrT, 6000); setK('hr', hrOk ? String(S.hr) : '--');
-  const hrmax = +$('#hrmax').value || 185, z = hrOk ? Math.min(5, Math.max(1, Math.ceil((S.hr/hrmax - .5)/.1))) : 0; setK('zone', z ? 'Z' + z : '-');
+  const hrmax = +$('#hrmax').value || 185, z = hrOk ? Math.min(5, Math.max(1, Math.ceil((S.hr/hrmax - .5)/.1))) : 0; setK('zone', z ? 'Z' + z : '-'); setK('hrzone', z ? 'Z' + z : '--');
   setK('dist', fmt(S.dist/1000, 2));
   const s = Math.round(S.moving); setK('time', `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`);
   setK('avg', fmt(S.moving > 0 ? S.dist/S.moving*3.6 : 0, 1));
@@ -818,7 +1392,7 @@ $('#hrmax').value = store.get('hrmax', 185); $('#hrmax').onchange = e => store.s
 $('#fs').onclick = async () => { try { await document.documentElement.requestFullscreen(); } catch {} try { await screen.orientation.lock('landscape'); } catch {} setTimeout(() => map && map.resize(), 300); };
 if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => $('#pbat').textContent = '🔋 ' + Math.round(b.level*100) + ' %'; u(); b.onlevelchange = u; });
 addEventListener('resize', () => map && map.resize());
-setPage(0); setRec(S.rec); applyEco(); startGPS(); autoReconnect();
+buildTiles(); setPage(0); setRec(S.rec); applyEco(); startGPS(); autoReconnect(); restoreNative();
 </script>
 </body>
 </html>

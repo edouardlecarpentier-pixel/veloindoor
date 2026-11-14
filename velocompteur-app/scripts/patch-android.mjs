@@ -15,22 +15,26 @@ const extra = `
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 `;
 if (!manifest.includes('FOREGROUND_SERVICE_LOCATION')) {
   manifest = manifest.replace('</manifest>', extra + '</manifest>');
   writeFileSync(manifestPath, manifest);
 }
-// Android 11+ : déclarer les applis de musique que l'on peut ouvrir
-if (!manifest.includes('<queries>')) {
-  const q = `
-    <queries>
-        <package android:name="com.spotify.music" />
-        <package android:name="deezer.android.app" />
-        <package android:name="com.google.android.apps.youtube.music" />
-    </queries>
-`;
-  manifest = manifest.replace('</manifest>', q + '</manifest>');
+// Retour de l'autorisation Strava : velocompteur://localhost/strava?code=…
+if (!manifest.includes('android:scheme="velocompteur"')) {
+  const f = `
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="velocompteur" android:host="localhost" />
+            </intent-filter>`;
+  const i = manifest.indexOf('</intent-filter>');
+  if (i < 0) throw new Error('intent-filter principal introuvable');
+  manifest = manifest.slice(0, i + 16) + f + manifest.slice(i + 16);
   writeFileSync(manifestPath, manifest);
 }
 
@@ -54,8 +58,60 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(SmsSendPlugin.class);
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+}
+`);
+
+// Plugin maison : envoi direct d'un SMS (alerte chute)
+writeFileSync(join(main, '..', 'SmsSendPlugin.java'), `package ${pkg};
+
+import android.Manifest;
+import android.os.Build;
+import android.telephony.SmsManager;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import java.util.ArrayList;
+
+@CapacitorPlugin(name = "SmsSend", permissions = { @Permission(strings = { Manifest.permission.SEND_SMS }, alias = "sms") })
+public class SmsSendPlugin extends Plugin {
+    private boolean granted() { return getPermissionState("sms") == PermissionState.GRANTED; }
+
+    @PluginMethod
+    public void requestPerm(PluginCall call) {
+        if (granted()) { JSObject r = new JSObject(); r.put("granted", true); call.resolve(r); }
+        else requestPermissionForAlias("sms", call, "permOnly");
+    }
+
+    @PermissionCallback
+    private void permOnly(PluginCall call) { JSObject r = new JSObject(); r.put("granted", granted()); call.resolve(r); }
+
+    @PluginMethod
+    public void send(PluginCall call) {
+        if (!granted()) { requestPermissionForAlias("sms", call, "permThenSend"); return; }
+        doSend(call);
+    }
+
+    @PermissionCallback
+    private void permThenSend(PluginCall call) { if (granted()) doSend(call); else call.reject("Permission SMS refusée"); }
+
+    private void doSend(PluginCall call) {
+        String to = call.getString("to"), text = call.getString("text");
+        if (to == null || text == null) { call.reject("numéro ou texte manquant"); return; }
+        try {
+            SmsManager sm = Build.VERSION.SDK_INT >= 31 ? getContext().getSystemService(SmsManager.class) : SmsManager.getDefault();
+            ArrayList<String> parts = sm.divideMessage(text);
+            sm.sendMultipartTextMessage(to, null, parts, null, null);
+            call.resolve();
+        } catch (Exception e) { call.reject(e.getMessage()); }
     }
 }
 `);
