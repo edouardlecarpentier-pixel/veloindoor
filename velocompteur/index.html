@@ -19,6 +19,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
 .chip{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:#18212b;white-space:nowrap;font-size:12px}
 .chip::before{content:"";width:8px;height:8px;border-radius:50%;background:#55606b}
 .chip.on::before{background:var(--ok)}.chip.wait::before{background:var(--warn)}
+.tabs{display:flex;gap:4px;flex:0 0 auto}
+.tabs button{border:none;border-radius:9px;padding:6px 11px;font:inherit;font-size:13px;font-weight:700;background:#18212b;color:#cfd8e2;min-width:44px;min-height:34px}
+.tabs button.on{background:var(--acc);color:#03202b}
+.chip{font-size:11px;padding:2px 6px}
 #rec{border:none;border-radius:999px;padding:5px 12px;font:inherit;font-weight:700;background:var(--ok);color:#03200f}
 #rec.run{background:var(--red);color:#fff}#rec.pause{background:var(--warn);color:#201400}
 /* zone principale */
@@ -77,6 +81,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
 .leaflet-container{background:#dfe3e8}
 .me-icon{width:22px;height:22px;border-radius:50%;background:#ff5a36;border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.5)}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
+@media (max-width:760px){.chips .chip{font-size:0;padding:4px}.chips .chip::before{margin:0}}
 @media (orientation:portrait){
   .page.on{flex-direction:column}
   .mapbox{flex:0 0 45%}
@@ -90,10 +95,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family
 <div id="app">
   <div class="sbar">
     <span id="clock">--:--</span>
+    <div class="tabs" id="tabs"><button data-p="0">🗺 + 📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">⚙</button></div>
     <div class="chips">
       <span class="chip" id="cGPS">GPS</span>
       <span class="chip" id="cPW">Pédales</span>
-      <span class="chip" id="cHR">Montre FC</span>
+      <span class="chip" id="cHR">FC</span>
       <span class="chip" id="cRD">Varia</span>
       <span class="chip" id="cDEMO" style="display:none">DÉMO</span>
     </div>
@@ -207,11 +213,13 @@ function setPage(i){
   page = (i + pages.length) % pages.length;
   pages.forEach((p, k) => p.classList.toggle('on', k === page));
   [...dots.children].forEach((d, k) => d.classList.toggle('on', k === page));
+  document.querySelectorAll('#tabs button').forEach((b, k) => b.classList.toggle('on', k === page));
   setTimeout(() => { map1.invalidateSize(); map2.invalidateSize(); }, 50);
 }
 // balayage sur les zones de données (pas sur la carte)
 let sx = null;
-document.querySelectorAll('.grid,.grid4,.setup,.radar').forEach(el => {
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setPage(+b.dataset.p));
+document.querySelectorAll('.grid,.grid4,.setup,.radar,.overlay').forEach(el => {
   el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive:true});
   el.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setPage(page + (dx < 0 ? 1 : -1)); sx = null; });
 });
@@ -228,7 +236,7 @@ document.addEventListener('keydown', e => {
 const tileUrl = 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png';
 const attrib = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · CyclOSM';
 function mkMap(id, zoom){
-  const m = L.map(id, {zoomControl:false, attributionControl:true}).setView([49.205, -0.33], zoom);
+  const m = L.map(id, {zoomControl:false, attributionControl:true, keyboard:false}).setView([49.205, -0.33], zoom);
   L.tileLayer(tileUrl, {maxZoom:19, attribution:attrib, subdomains:'abc'}).addTo(m);
   L.control.zoom({position:'topleft'}).addTo(m);
   m._follow = true; m.on('dragstart', () => m._follow = false);
