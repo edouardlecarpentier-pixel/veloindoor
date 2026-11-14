@@ -137,6 +137,9 @@ button{font:inherit;cursor:pointer}
 #radTime{position:absolute;right:56px;top:40px;z-index:5;background:rgba(10,16,22,.85);color:#9fd4ff;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:700;display:none}
 #wxBadge{position:absolute;right:56px;top:8px;z-index:5;background:rgba(10,16,22,.92);box-shadow:0 2px 6px rgba(0,0,0,.4);color:#fff;border-radius:10px;padding:4px 9px;font-size:14px;font-weight:800;display:none}
 @media (orientation:portrait){.wx{grid-template-columns:1fr}}
+.poimk{width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid #ff8a3d;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 1px 4px rgba(0,0,0,.45);cursor:pointer}
+#pbat,#rec,.sbtn{white-space:nowrap}
+@media (max-width:520px){#pbat{display:none}#rec{padding:5px 9px;font-size:13px}.tabs button{min-width:36px;padding:6px 7px}}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
 body.eco .tile b{transition:none}
 @media (max-width:760px){.chips .chip{font-size:0;padding:4px}}
@@ -235,7 +238,7 @@ body.eco .tile b{transition:none}
         </div>
         <div class="card">
           <h3>Sortie et parcours</h3>
-          <div class="cfg"><button class="btn p" id="gpxIn">Charger un parcours GPX</button><button class="btn" id="routeClear">Retirer le parcours</button><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden></div>
+          <div class="cfg"><button class="btn p" id="gpxIn">Charger un parcours GPX</button><button class="btn" id="routeClear">Retirer le parcours</button><button class="btn" id="ventoPaste">📥 Importer depuis Vento</button><input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" hidden></div>
           <div class="cfg"><button class="btn" id="gpxOut">Exporter la sortie (GPX pour Strava)</button><button class="btn d" id="reset">Effacer la sortie</button></div>
           <h3 style="margin-top:12px">Réglages</h3>
           <div class="cfg">FC max <input type="number" id="hrmax" min="120" max="220" value="185"> bpm</div>
@@ -805,6 +808,7 @@ const conf = {}; function confirm2(k){ if (conf[k] && Date.now() - conf[k] < 500
   if (q.get('code') && q.get('scope') !== null){ history.replaceState(null, '', location.pathname); stCode(q.get('code'), q.get('scope')); }
   else if (q.get('error')){ history.replaceState(null, '', location.pathname); toast('Strava : autorisation refusée'); }
   if (NATIVE && Native.App) Native.App.addListener('appUrlOpen', ev => {
+    if (/\/import/.test(ev.url)){ ventoFromUrl(ev.url); return; }
     try { const u = new URL(ev.url); if (u.searchParams.get('code')) stCode(u.searchParams.get('code'), u.searchParams.get('scope') || ''); else toast('Strava : autorisation refusée'); } catch {}
   });
   stStatus();
@@ -1334,6 +1338,68 @@ function estCalibTxt(){ return EST.kN < 60 ? `Calibration : ${Math.round(EST.kN/
 $('#estReset').onclick = () => { EST.k = 1; EST.kN = 0; store.set('estK', 1); store.set('estKN', 0); $('#estSt').textContent = estCalibTxt(); toast('Calibration remise à zéro'); };
 setInterval(() => { const el = $('#estSt'); if (el && page === 4) el.textContent = estCalibTxt(); }, 2000);
 
+/* ================= import depuis Vento (planificateur) + points d'intérêt ================= */
+async function vcDecode(key, val){
+  const b = atob(val.replace(/-/g, '+').replace(/_/g, '/')), u = Uint8Array.from(b, c => c.charCodeAt(0));
+  const bytes = key === 'z' ? new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()) : u;
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+function ventoApply(p){
+  if (!p || p.v !== 1 || !Array.isArray(p.route)) throw new Error('données Vento non reconnues');
+  const pts = p.route.filter(r => Array.isArray(r) && isFinite(r[0]) && isFinite(r[1])).map(r => ({lat:+r[0], lon:+r[1], ele:r[2] == null ? null : +r[2]}));
+  if (pts.length < 2) throw new Error('parcours vide');
+  setRoute(pts); store.set('route', pts); store.set('routeName', p.name || '');
+  setPois((p.pois || []).filter(x => Array.isArray(x) && isFinite(x[0]) && isFinite(x[1])).map(x => ({lat:+x[0], lon:+x[1], n:String(x[2] || 'Point'), e:String(x[3] || '📍')})));
+  if (p.spd > 8 && p.spd < 45){ $('#etaSpd').value = Math.round(p.spd); store.set('etaSpd', Math.round(p.spd)); }
+  RW.key = ''; routeWxFetch(true); $('#offSt').textContent = offEstimate();
+  setPage(2); follow = true; lastCam = 0;
+  if (map && !S.pos) setTimeout(() => { const bb = new maplibregl.LngLatBounds(); S.rs.forEach(q => bb.extend([q.lon, q.lat])); map.fitBounds(bb, {padding:40, duration:0}); }, 300);
+  toast(`Reçu de Vento : « ${p.name || 'parcours'} » · ${fmt(S.routeTotal/1000, 1)} km` + (S.pois.length ? ` · ${S.pois.length} point${S.pois.length > 1 ? 's' : ''} d'intérêt` : '') + ' · cartes hors ligne : ⚙', 6000);
+}
+async function ventoFromUrl(u){
+  const m = String(u).match(/[?#&]([zd])=([^&#]+)/); if (!m) return false;
+  try { ventoApply(await vcDecode(m[1], m[2])); } catch (e) { toast('Import Vento impossible : ' + (e.message || e), 6000); }
+  return true;
+}
+$('#ventoPaste').onclick = async () => {
+  try {
+    const t = (await navigator.clipboard.readText() || '').trim();
+    if (!t) throw new Error('presse-papiers vide : dans Vento, touche « Rouler avec VéloCompteur »');
+    ventoApply(JSON.parse(t));
+  } catch (e) { toast('Import Vento : ' + (e.message || e), 6000); }
+};
+// points d'intérêt : repères sur la carte + annonce vocale à l'approche
+let poiMk = []; S.pois = [];
+function setPois(list){
+  poiMk.forEach(m => m.remove()); poiMk = []; S.pois = list.slice(0, 150); store.set('pois', S.pois); poiIndex();
+  if (!map || !window.maplibregl) return;
+  S.pois.forEach(p => {
+    const el = document.createElement('div'); el.className = 'poimk'; el.textContent = p.e; el.title = p.n;
+    el.onclick = e => { e.stopPropagation(); toast(`${p.e} ${p.n}` + (p.d != null && S.pos ? ` · dans ${fmtDist(Math.max(0, p.d - S.along))}` : '')); };
+    poiMk.push(new maplibregl.Marker({element:el}).setLngLat([p.lon, p.lat]).addTo(map));
+  });
+}
+function poiIndex(){
+  if (!S.rs) return;
+  S.pois.forEach(p => { let bd = Infinity, bi = 0; for (let i = 0; i < S.rs.length; i += 2){ const d = hav(p, S.rs[i]); if (d < bd){ bd = d; bi = i; } } p.d = bd < 200 ? S.rs[bi].d : null; p.said = false; });
+}
+function poiUpdate(){
+  if (S.off || !S.pois.length) return;
+  for (const p of S.pois){
+    if (p.d == null || p.said) continue;
+    const ahead = p.d - S.along;
+    if (ahead > 150 && ahead < 400){ p.said = true; say(`Dans ${Math.round(ahead/50)*50} mètres : ${p.n}`); toast(`${p.e} ${p.n} dans ${fmtDist(ahead)}`, 5000); }
+    else if (ahead < -50) p.said = true;
+  }
+}
+function gpxPois(doc){
+  return [...doc.querySelectorAll('wpt')].slice(0, 150).map(w => ({lat:+w.getAttribute('lat'), lon:+w.getAttribute('lon'),
+    n:(w.querySelector('name') || {}).textContent || 'Point', e:'📍'})).filter(p => isFinite(p.lat) && isFinite(p.lon));
+}
+// arrivée par lien : version web (#z=…) ou appli Android (velocompteur://localhost/import?z=…)
+if (/[#&]([zd])=/.test(location.hash)){ const h = location.hash; history.replaceState(null, '', location.pathname); setTimeout(() => ventoFromUrl(h), 600); }
+if (NATIVE && Native.App) Native.App.getLaunchUrl().then(r => { if (r && r.url && /\/import/.test(r.url)) setTimeout(() => ventoFromUrl(r.url), 600); }).catch(() => {});
+
 /* ================= parcours et guidage virage par virage ================= */
 $('#gpxIn').onclick = () => $('#gpxFile').click();
 $('#gpxFile').onchange = async e => {
@@ -1341,12 +1407,12 @@ $('#gpxFile').onchange = async e => {
   const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
   const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => { const e = n.querySelector('ele'); return {lat:+n.getAttribute('lat'), lon:+n.getAttribute('lon'), ele:e ? +e.textContent : null}; }).filter(p => isFinite(p.lat) && isFinite(p.lon));
   if (pts.length < 2){ toast('Parcours GPX vide ou illisible'); return; }
-  setRoute(pts); store.set('route', pts); RW.key = ''; routeWxFetch(true);
+  setRoute(pts); store.set('route', pts); setPois(gpxPois(doc)); RW.key = ''; routeWxFetch(true);
   toast(`Parcours chargé : ${fmt(S.routeTotal/1000, 1)} km, ${S.turns.length} changements de direction`, 4000);
   $('#offSt').textContent = offEstimate();
   e.target.value = '';
 };
-$('#routeClear').onclick = () => { S.route = S.rs = S.rse = null; S.turns = []; S.climbs = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
+$('#routeClear').onclick = () => { setPois([]); S.route = S.rs = S.rse = null; S.turns = []; S.climbs = []; store.set('route', null); setRouteLayer(); $('#nav').style.display = 'none'; toast('Parcours retiré'); };
 function setRoute(pts){
   S.route = pts;
   // ré-échantillonnage tous les 10 m
@@ -1371,7 +1437,7 @@ function setRoute(pts){
   for (const c of cand){ if (grp.length && c.i - grp[grp.length - 1].i > 2) flush(); grp.push(c); }
   flush();
   S.turns = turns.filter((t, k) => k === 0 || t.d - turns[k - 1].d > 30).map(t => ({...t, said:{}}));
-  S.rse = null; S.climbs = []; routeElevation(rs);
+  S.rse = null; S.climbs = []; routeElevation(rs); if (S.pois) poiIndex();
   setRouteLayer();
   if (styleReady()){
     const b = new maplibregl.LngLatBounds(); rs.forEach(p => b.extend([p.lon, p.lat]));
@@ -1398,7 +1464,7 @@ function navUpdate(){
   for (let i = from; i <= to; i++){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } }
   if (bd > 120){ for (let i = 0; i < S.rs.length; i += 2){ const d = hav(S.pos, S.rs[i]); if (d < bd){ bd = d; best = i; } } }
   S.aIdx = best; S.along = S.rs[best].d; if (!fly) updateAhead();
-  climbUpdate();
+  climbUpdate(); poiUpdate();
   const now = Date.now();
   if (bd > 50){ if (!S.offT) S.offT = now; if (!S.off && now - S.offT > 8000){ S.off = true; say('Vous avez quitté le parcours'); } }
   else { if (S.off && bd < 30){ S.off = false; say('Parcours retrouvé'); } if (bd < 30) S.offT = 0; }
@@ -1742,7 +1808,7 @@ $('#hrmax').value = store.get('hrmax', 185); $('#hrmax').onchange = e => store.s
 $('#fs').onclick = async () => { try { await document.documentElement.requestFullscreen(); } catch {} try { await screen.orientation.lock('landscape'); } catch {} setTimeout(() => map && map.resize(), 300); };
 if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => $('#pbat').textContent = '🔋 ' + Math.round(b.level*100) + ' %'; u(); b.onlevelchange = u; });
 addEventListener('resize', () => map && map.resize());
-buildTiles(); setPage(0); setRec(S.rec); applyEco(); startGPS(); autoReconnect(); restoreNative();
+buildTiles(); setPois(store.get('pois', [])); setPage(0); setRec(S.rec); applyEco(); startGPS(); autoReconnect(); restoreNative();
 </script>
 </body>
 </html>
