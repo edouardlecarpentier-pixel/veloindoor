@@ -138,6 +138,7 @@ body.eco .tile b{transition:none}
           <div class="navcard" id="nav"><div class="arr" id="navArr">↰</div><div><b id="navDist">300 m</b><span id="navTxt">Tournez à gauche</span></div></div>
           <div class="mapbtns">
             <button id="b3d" title="Vue 3D">3D</button>
+            <button id="bSat" title="Vue satellite">🛰</button>
             <button id="bDark" title="Carte sombre">☾</button>
             <button id="bCenter" title="Recentrer">◎</button>
           </div>
@@ -272,7 +273,7 @@ const S = {
   route:null, rs:null, turns:[], along:0, aIdx:0, offT:0, off:false, routeTotal:0,
 };
 if (S.pts.length) S.rec = 'pause';
-const opt = { dark:store.get('dark', false), d3:store.get('d3', false), eco:store.get('eco', false) };
+const opt = { sat:store.get('sat', false), dark:store.get('dark', false), d3:store.get('d3', false), eco:store.get('eco', false) };
 
 /* ================= écrans ================= */
 const pages = [...document.querySelectorAll('.page')];
@@ -308,6 +309,8 @@ const style = {
   sources:{
     cyclosm:{type:'raster', tiles:sub.map(s => `https://${s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png`), tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · CyclOSM'},
     dark:{type:'raster', tiles:['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`), tileSize:256, maxzoom:19, attribution:'© OpenStreetMap · © CARTO'},
+    esri:{type:'raster', tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize:256, maxzoom:19, attribution:'Imagerie © Esri'},
+    ign:{type:'raster', tiles:['https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM_0_19&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'], tileSize:256, maxzoom:19, attribution:'Photos aériennes © IGN'},
     dem:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
     hill:{type:'raster-dem', tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding:'terrarium', tileSize:256, maxzoom:14},
     route:{type:'geojson', data:{type:'FeatureCollection', features:[]}},
@@ -317,6 +320,8 @@ const style = {
     {id:'bg', type:'background', paint:{'background-color':'#dfe3e8'}},
     {id:'cyclosm', type:'raster', source:'cyclosm'},
     {id:'dark', type:'raster', source:'dark', layout:{visibility:'none'}},
+    {id:'esri', type:'raster', source:'esri', layout:{visibility:'none'}},
+    {id:'ign', type:'raster', source:'ign', layout:{visibility:'none'}},
     {id:'hill', type:'hillshade', source:'hill', layout:{visibility:'none'}, paint:{'hillshade-exaggeration':0.35, 'hillshade-shadow-color':'#3a3a3a'}},
     {id:'route-casing', type:'line', source:'route', paint:{'line-color':'#ffffff', 'line-width':9, 'line-opacity':.9}, layout:{'line-cap':'round','line-join':'round'}},
     {id:'route', type:'line', source:'route', paint:{'line-color':'#2f7cf6', 'line-width':6}, layout:{'line-cap':'round','line-join':'round'}},
@@ -335,9 +340,12 @@ try {
 
 function applyMapOpts(){
   if (!map || !map.isStyleLoaded()) return;
-  const dark = opt.dark || opt.eco, d3 = opt.d3 && !opt.eco;
-  map.setLayoutProperty('cyclosm', 'visibility', dark ? 'none' : 'visible');
+  const sat = opt.sat && !opt.eco, dark = !sat && (opt.dark || opt.eco), d3 = opt.d3 && !opt.eco;
+  map.setLayoutProperty('cyclosm', 'visibility', dark || sat ? 'none' : 'visible');
   map.setLayoutProperty('dark', 'visibility', dark ? 'visible' : 'none');
+  map.setLayoutProperty('esri', 'visibility', sat ? 'visible' : 'none');   // fond mondial
+  map.setLayoutProperty('ign', 'visibility', sat ? 'visible' : 'none');    // photos IGN, plus précises en France
+  $('#bSat').classList.toggle('on', sat);
   map.setPaintProperty('bg', 'background-color', dark ? '#111' : '#dfe3e8');
   map.setLayoutProperty('hill', 'visibility', d3 ? 'visible' : 'none');
   try { map.setTerrain(d3 ? {source:'dem', exaggeration:1.4} : null); } catch {}
@@ -349,7 +357,8 @@ function applyMapOpts(){
   lastCam = 0;
 }
 $('#b3d').onclick = () => { if (opt.eco){ toast('Désactivez le mode éco pour la 3D'); return; } opt.d3 = !opt.d3; store.set('d3', opt.d3); applyMapOpts(); };
-$('#bDark').onclick = () => { opt.dark = !opt.dark; store.set('dark', opt.dark); applyMapOpts(); };
+$('#bDark').onclick = () => { opt.dark = !opt.dark; if (opt.dark){ opt.sat = false; store.set('sat', false); } store.set('dark', opt.dark); applyMapOpts(); };
+$('#bSat').onclick = () => { if (opt.eco){ toast('Désactivez le mode éco pour la vue satellite'); return; } opt.sat = !opt.sat; if (opt.sat){ opt.dark = false; store.set('dark', false); } store.set('sat', opt.sat); applyMapOpts(); };
 $('#bCenter').onclick = () => { follow = true; lastCam = 0; moveCamera(true); };
 function moveCamera(force){
   if (!map || !S.pos || !follow) return;
