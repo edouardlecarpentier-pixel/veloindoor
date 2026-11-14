@@ -123,6 +123,19 @@ button{font:inherit;cursor:pointer}
 .zbar{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}.zbar span{width:34px}.zbar i{height:12px;border-radius:3px;display:block}
 .laps{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.laps td,.laps th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:right}.laps th{color:var(--mut);font-weight:600}
 #pickList{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:8px 0}
+.wx{flex:1;display:grid;grid-template-columns:minmax(220px,38%) 1fr;gap:8px;padding:6px 6px 24px;min-height:0;overflow:auto}
+.wxl{background:var(--tile);border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center}
+.wxl svg{width:min(100%,46vh);height:auto}
+#wxWind{font-size:clamp(26px,7vh,46px);font-weight:800}#wxWindTxt{font-size:13px;color:var(--mut)}#wxEff{font-size:13px;font-weight:700}
+.wxr{display:flex;flex-direction:column;gap:6px;min-width:0}
+#wxTiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}#wxTiles .tile b{font-size:clamp(18px,4.6vh,30px)}
+#wxHours{display:flex;gap:6px;overflow-x:auto}.wxh{flex:1;min-width:62px;background:var(--tile);border-radius:10px;padding:4px;display:flex;flex-direction:column;align-items:center;font-size:13px}
+.wxh i{font-style:normal;font-size:22px;font-weight:800;display:block;line-height:1}.wxh small{color:var(--mut);font-size:11px}
+.wxrt{font-size:13px;background:var(--tile);border-radius:10px;padding:6px 8px}
+.wxstrip{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:4px}.wxstrip i{flex:1}
+.wxlab{display:flex;justify-content:space-between;font-size:10px;color:var(--mut)}
+#wxBadge{position:absolute;right:60px;top:8px;z-index:5;background:rgba(10,16,22,.85);color:#fff;border-radius:10px;padding:4px 9px;font-size:14px;font-weight:800;display:none}
+@media (orientation:portrait){.wx{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#24323f;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;z-index:2000;display:none;max-width:90vw;text-align:center}
 body.eco .tile b{transition:none}
 @media (max-width:760px){.chips .chip{font-size:0;padding:4px}}
@@ -139,7 +152,7 @@ body.eco .tile b{transition:none}
 <div id="app">
   <div class="sbar" id="sbar">
     <span id="clock">--:--</span>
-    <div class="tabs" id="tabs"><button data-p="0">🗺+📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">⚙</button></div>
+    <div class="tabs" id="tabs"><button data-p="0">🗺+📊</button><button data-p="1">📊</button><button data-p="2">🗺</button><button data-p="3">💨</button><button data-p="4">⚙</button></div>
     <div class="chips">
       <span class="chip" id="cGPS">GPS</span>
       <span class="chip" id="cPW">Pédales</span>
@@ -159,6 +172,7 @@ body.eco .tile b{transition:none}
           <div id="map"></div>
           <div class="navcard" id="nav"><div class="arr" id="navArr">↰</div><div><b id="navDist">300 m</b><span id="navTxt">Tournez à gauche</span></div></div>
           <div class="climbcard" id="climb"></div>
+          <div id="wxBadge"></div>
           <canvas id="prof"></canvas>
           <div class="mapbtns">
             <button id="b3d" title="Vue 3D">2D</button><button id="bFly" title="Survol du parcours en 3D">▶</button>
@@ -181,7 +195,28 @@ body.eco .tile b{transition:none}
         <div class="overlay" data-lay="p2"></div>
       </div>
     </div>
-    <!-- 3 · capteurs et réglages -->
+    <!-- 3 · météo -->
+    <div class="page" data-name="Météo">
+      <div class="wx">
+        <div class="wxl">
+          <svg viewBox="-100 -100 200 200">
+            <circle r="92" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/>
+            <g id="wNorth"><text data-b="0" text-anchor="middle" dominant-baseline="central" font-size="17" font-weight="800" fill="#ff5a36">N</text><text data-b="90" text-anchor="middle" dominant-baseline="central" font-size="13" fill="currentColor" opacity=".6">E</text><text data-b="180" text-anchor="middle" dominant-baseline="central" font-size="13" fill="currentColor" opacity=".6">S</text><text data-b="270" text-anchor="middle" dominant-baseline="central" font-size="13" fill="currentColor" opacity=".6">O</text></g>
+            <g id="wBike"><path d="M0,-22 L13,16 L0,8 L-13,16 Z" fill="currentColor"/></g>
+            <g id="wArrow"><line x1="0" y1="-90" x2="0" y2="-40" data-c="stroke" stroke-width="9" stroke-linecap="round"/><path d="M-15,-50 L0,-28 L15,-50 Z" data-c="fill"/></g>
+          </svg>
+          <b id="wxWind">--</b><span id="wxWindTxt">Vent</span><span id="wxEff"></span>
+          <button class="btn" id="wxRefresh">Actualiser</button>
+        </div>
+        <div class="wxr">
+          <div id="wxTiles"></div>
+          <div id="wxRoute"></div>
+          <div id="wxHours"></div>
+          <div class="note" id="wxUpd"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 4 · capteurs et réglages -->
     <div class="page" data-name="Capteurs et réglages">
       <div class="setup cards">
         <div class="card">
@@ -319,10 +354,11 @@ function setPage(i){
   if (slot && $('#mapwrap').parentElement !== slot) slot.prepend($('#mapwrap'));
   $('#mapwrap').classList.toggle('full', page === 2);
   if (slot && map) setTimeout(() => map.resize(), 30);
+  if (page === 3 && typeof wxRender === 'function'){ wxRender(); wxFetch(false); }
 }
 document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => setPage(+b.dataset.p));
 let sx = null;
-document.querySelectorAll('.grid,.grid4,.setup,.radar').forEach(el => {
+document.querySelectorAll('.grid,.grid4,.setup,.radar,.wx').forEach(el => {
   el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive:true});
   el.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 60) setPage(page + (dx < 0 ? 1 : -1)); sx = null; });
 });
@@ -571,6 +607,7 @@ const FIELDS = {
   dist:['Distance','km',''], time:['Temps','',''], clock:['Heure','',''], kcal:['Calories','kcal',''],
   dp:['Dénivelé +','m',''], grade:['Pente','',''], ele:['Altitude','m',''],
   navshort:['Prochaine direction','',''], left:['Reste (parcours)','km',''], climb:['Montée','',''],
+  wind:['Vent (relatif)','km/h',''], temp:['Température','°C',''],
   lap:['Tour n°','',''], laptime:['Temps du tour','',''], lapdist:['Distance du tour','km',''], lapspd:['Vitesse du tour','km/h',''], lappw:['Puissance du tour','W','pw'],
 };
 const LAY0 = {p0:['spd','pw3','cad','hr','dist','time','dp'], p1:['spd','pw3','hr','cad','dist','time','avg','pwavg','dp','grade','navshort','hravg'], p2:['spd','dist','left','hr']};
@@ -990,6 +1027,128 @@ $('#bProf').onclick = () => {
 if (!NATIVE && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 
+/* ================= météo (Open-Meteo) : vent relatif au sens de marche ================= */
+const WX = {data:null, at:0, lat:null, lon:null, said:{}};
+const WMO = {0:['☀️','Ciel clair'],1:['🌤','Peu nuageux'],2:['⛅','Partiellement nuageux'],3:['☁️','Couvert'],45:['🌫','Brouillard'],48:['🌫','Brouillard givrant'],
+  51:['🌦','Bruine légère'],53:['🌦','Bruine'],55:['🌧','Bruine forte'],56:['🌧','Bruine verglaçante'],57:['🌧','Bruine verglaçante'],61:['🌦','Pluie faible'],63:['🌧','Pluie'],65:['🌧','Pluie forte'],
+  66:['🌧','Pluie verglaçante'],67:['🌧','Pluie verglaçante'],71:['🌨','Neige faible'],73:['🌨','Neige'],75:['❄️','Neige forte'],77:['🌨','Grains de neige'],80:['🌦','Averses'],81:['🌧','Averses'],82:['⛈','Fortes averses'],
+  85:['🌨','Averses de neige'],86:['🌨','Averses de neige'],95:['⛈','Orage'],96:['⛈','Orage avec grêle'],99:['⛈','Orage avec grêle']};
+const wmo = c => WMO[c] || ['·', '—'];
+const CARD = ['N','NE','E','SE','S','SO','O','NO'];
+const card = d => CARD[Math.round(((d % 360) + 360) % 360/45) % 8];
+function wxWhere(){
+  if (S.pos) return S.pos;
+  if (S.rs) return S.rs[0];
+  if (map){ const c = map.getCenter(); return {lat:c.lat, lon:c.lng}; }
+  return null;
+}
+async function wxFetch(force){
+  const p = wxWhere(); if (!p) return;
+  const moved = WX.lat === null ? Infinity : hav({lat:WX.lat, lon:WX.lon}, p);
+  if (!force && WX.data && Date.now() - WX.at < 10*60000 && moved < 8000) return;
+  const q = `latitude=${p.lat.toFixed(3)}&longitude=${p.lon.toFixed(3)}&timezone=auto&wind_speed_unit=kmh&forecast_hours=8&forecast_minutely_15=8` +
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day' +
+    '&minutely_15=precipitation&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&daily=sunrise,sunset&forecast_days=2';
+  try {
+    $('#wxUpd').textContent = 'Mise à jour…';
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q); if (!r.ok) throw new Error('HTTP ' + r.status);
+    WX.data = await r.json(); WX.at = Date.now(); WX.lat = p.lat; WX.lon = p.lon; store.set('wx', {data:WX.data, at:WX.at, lat:p.lat, lon:p.lon});
+    wxAlerts(); wxRender();
+  } catch (e) { wxRender(); $('#wxUpd').textContent = 'Météo indisponible (pas de réseau ?)' + (WX.at ? ' · dernières données : ' + new Date(WX.at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) : ''); }
+}
+(function(){ const o = store.get('wx', null); if (o && Date.now() - o.at < 3*3600000) Object.assign(WX, o); })();
+// sens de marche : cap GPS, sinon direction du parcours
+function wxHeading(){
+  if (S.heading !== null && S.spd > 4) return S.heading;
+  if (S.rs && S.rs.length > 3){ const i = Math.min(S.aIdx, S.rs.length - 4); return brg(S.rs[i], S.rs[Math.min(S.rs.length - 1, i + 3)]); }
+  return S.heading;
+}
+// rel : angle d'où vient le vent par rapport au cycliste (0 = de face, ±180 = de dos, >0 = de droite)
+function windRel(from, head){
+  const rel = angDiff(head, from), a = Math.abs(rel);
+  const type = a <= 45 ? 'face' : a >= 135 ? 'dos' : (rel > 0 ? 'côté droit' : 'côté gauche');
+  return {rel, type, head:Math.cos(rel*R), cross:Math.sin(rel*R)};
+}
+const windCol = t => t === 'face' ? '#ff4d4d' : t === 'dos' ? '#3ecf72' : '#ffb020';
+function wxNow(){
+  const c = WX.data && WX.data.current; if (!c) return null;
+  const head = wxHeading();
+  return {spd:c.wind_speed_10m, gust:c.wind_gusts_10m, from:c.wind_direction_10m, head, w:head === null || head === undefined ? null : windRel(c.wind_direction_10m, head)};
+}
+function wxShort(){
+  const n = wxNow(); if (!n) return '--';
+  if (!n.w) return `${card(n.from)} ${Math.round(n.spd)}`;
+  const arrows = ['↓','↙','←','↖','↑','↗','→','↘'];   // flèche = sens où pousse le vent, vu du cycliste
+  return `${arrows[Math.round(((n.w.rel % 360) + 360) % 360/45) % 8]} ${Math.round(n.spd)}`;
+}
+function wxRender(){
+  const d = WX.data, n = wxNow();
+  const age = WX.at ? Math.round((Date.now() - WX.at)/60000) : null;
+  if (!d){ $('#wxWind').textContent = '--'; $('#wxWindTxt').textContent = 'En attente de la position GPS'; return; }
+  const c = d.current, [ic, lb] = wmo(c.weather_code);
+  // boussole : le haut = votre sens de marche (ou le nord si inconnu)
+  const up = n.head ?? 0, rot = (n.from - up + 360) % 360, col = n.w ? windCol(n.w.type) : '#38d0ff';
+  $('#wArrow').setAttribute('transform', `rotate(${rot})`); $('#wArrow').querySelectorAll('[data-c]').forEach(e => e.setAttribute(e.dataset.c, col));
+  $('#wNorth').querySelectorAll('text').forEach(t => { const a = (+t.dataset.b - up)*R; t.setAttribute('x', (78*Math.sin(a)).toFixed(1)); t.setAttribute('y', (-78*Math.cos(a)).toFixed(1)); });
+  $('#wBike').style.display = n.head === null || n.head === undefined ? 'none' : '';
+  $('#wxWind').textContent = `${Math.round(n.spd)} km/h`; $('#wxWind').style.color = col;
+  $('#wxWindTxt').textContent = n.w
+    ? `Vent ${n.w.type === 'face' ? 'de face' : n.w.type === 'dos' ? 'de dos' : 'de ' + n.w.type} · vient du ${card(n.from)} · rafales ${Math.round(n.gust)} km/h`
+    : `Vient du ${card(n.from)} · rafales ${Math.round(n.gust)} km/h · nord en haut (roulez pour voir le vent relatif)`;
+  $('#wxEff').textContent = n.w ? `Effet sur vous : ${n.w.head >= 0 ? 'freine' : 'pousse'} ${Math.round(Math.abs(n.spd*n.w.head))} km/h · latéral ${Math.round(Math.abs(n.spd*n.w.cross))} km/h` : '';
+  // pluie dans l'heure (pas de 15 min)
+  const m = d.minutely_15 || {}, now = Date.now();
+  let rainIn = null, rainSum = 0;
+  (m.time || []).forEach((t, i) => { const tt = new Date(t).getTime(); if (tt + 15*60000 < now || tt > now + 60*60000) return; const v = m.precipitation[i] || 0; rainSum += v; if (v >= 0.1 && rainIn === null) rainIn = Math.max(0, Math.round((tt - now)/60000)); });
+  const sunset = d.daily && d.daily.sunset ? d.daily.sunset.map(s => new Date(s).getTime()).find(t => t > now - 3600000) : null;
+  const sl = sunset ? Math.round((sunset - now)/60000) : null;
+  const tile = (l, v, u = '') => `<div class="tile"><label>${l}</label><div class="v"><b>${v}</b><u>${u}</u></div></div>`;
+  $('#wxTiles').innerHTML =
+    tile('Temps', `${ic}`, lb) + tile('Température', fmt(c.temperature_2m, 0), '°C') + tile('Ressenti', fmt(c.apparent_temperature, 0), '°C') +
+    tile('Pluie (1 h)', rainIn === null ? 'Non' : rainIn <= 5 ? 'En cours' : `dans ${rainIn} min`, rainIn === null ? '' : fmt(rainSum, 1) + ' mm') +
+    tile(sl !== null && sl < 0 ? 'Soleil couché' : 'Coucher du soleil', sunset ? new Date(sunset).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) : '--', sl !== null && sl > 0 && sl < 180 ? `dans ${Math.floor(sl/60)} h ${String(sl % 60).padStart(2, '0')}` : '') +
+    tile('Humidité', Math.round(c.relative_humidity_2m), '%');
+  // prochaines heures
+  const h = d.hourly || {}; let html = '';
+  (h.time || []).forEach((t, i) => {
+    const tt = new Date(t); if (tt.getTime() < now - 3600000 || html.split('wxh"').length > 7) return;
+    const w = n.head === null || n.head === undefined ? null : windRel(h.wind_direction_10m[i], n.head);
+    const r2 = (h.wind_direction_10m[i] - (n.head ?? 0) + 180 + 360) % 360;
+    html += `<div class="wxh"><small>${tt.getHours()} h</small><span>${wmo(h.weather_code[i])[0]}</span><b>${Math.round(h.temperature_2m[i])}°</b>` +
+      `<i style="transform:rotate(${r2}deg);color:${w ? windCol(w.type) : 'inherit'}">↑</i><small>${Math.round(h.wind_speed_10m[i])} km/h</small><small>💧${h.precipitation_probability[i] ?? 0} %</small></div>`;
+  });
+  $('#wxHours').innerHTML = html;
+  wxRouteRender();
+  $('#wxUpd').textContent = `Open-Meteo · mis à jour il y a ${age} min · flèches : sens où souffle le vent, votre sens de marche vers le haut`;
+}
+// vent sur la suite du parcours (vent actuel, appliqué à chaque tronçon)
+function wxRouteRender(){
+  const box = $('#wxRoute'), c = WX.data && WX.data.current;
+  if (!S.rs || !c){ box.innerHTML = '<div class="note">Chargez un parcours pour voir le vent sur la suite du trajet.</div>'; return; }
+  const i0 = S.pos ? S.aIdx : 0, i1 = Math.min(S.rs.length - 1, i0 + 3000), segs = [];
+  for (let i = i0; i + 20 <= i1; i += 20) segs.push(windRel(c.wind_direction_10m, brg(S.rs[i], S.rs[i + 20])));
+  if (!segs.length){ box.innerHTML = ''; return; }
+  const pct = t => Math.round(segs.filter(s => t === 'côté' ? s.type.startsWith('côté') : s.type === t).length/segs.length*100);
+  const eff = segs.reduce((a, s) => a + s.head, 0)/segs.length*c.wind_speed_10m;
+  const km = (S.rs[i0 + segs.length*20 - 1] || S.rs[i1]).d - S.rs[i0].d;
+  box.innerHTML = `<div class="wxrt">Sur les prochains ${fmtDist(km)} : <b style="color:${windCol('face')}">${pct('face')} % de face</b> · <b style="color:${windCol('dos')}">${pct('dos')} % de dos</b> · <b style="color:${windCol('côté')}">${pct('côté')} % de côté</b> · effet moyen : ${eff >= 0 ? 'freine' : 'pousse'} ${Math.round(Math.abs(eff))} km/h</div>` +
+    `<div class="wxstrip">${segs.map(s => `<i style="background:${windCol(s.type)}"></i>`).join('')}</div><div class="wxlab"><span>maintenant</span><span>+${fmtDist(km)}</span></div>`;
+}
+// alertes vocales : pluie imminente, coucher du soleil, fortes rafales
+function wxAlerts(){
+  if (S.rec !== 'run' || !WX.data) return;
+  const d = WX.data, now = Date.now(), m = d.minutely_15 || {};
+  let rainIn = null; (m.time || []).forEach((t, i) => { const tt = new Date(t).getTime(); if (rainIn === null && tt > now - 15*60000 && tt < now + 45*60000 && (m.precipitation[i] || 0) >= 0.2) rainIn = Math.max(0, Math.round((tt - now)/60000)); });
+  if (rainIn !== null && now - (WX.said.rain || 0) > 45*60000){ WX.said.rain = now; say(rainIn < 10 ? 'Pluie imminente' : `Pluie prévue dans ${Math.round(rainIn/5)*5} minutes`); }
+  const ss = d.daily && d.daily.sunset && d.daily.sunset.map(s => new Date(s).getTime()).find(t => t > now);
+  if (ss && ss - now < 45*60000 && !WX.said['ss' + ss]){ WX.said['ss' + ss] = 1; say(`Coucher du soleil dans ${Math.round((ss - now)/60000)} minutes, pensez à l'éclairage`); }
+  const g = d.current.wind_gusts_10m; if (g >= 55 && now - (WX.said.gust || 0) > 60*60000){ WX.said.gust = now; say(`Attention, rafales de vent à ${Math.round(g)} kilomètres heure`); }
+}
+setInterval(() => { wxFetch(false); if (page === 3) wxRender(); }, 60000);
+setInterval(wxAlerts, 5*60000);
+setTimeout(() => wxFetch(false), 4000);
+$('#wxRefresh').onclick = () => wxFetch(true);
+
 /* ================= parcours et guidage virage par virage ================= */
 $('#gpxIn').onclick = () => $('#gpxFile').click();
 $('#gpxFile').onchange = async e => {
@@ -1368,6 +1527,9 @@ function render(){
   if (pz !== render.pz){ render.pz = pz; document.querySelectorAll('.tile.pw').forEach(t => t.style.setProperty('--zc', pz ? ZC[pz - 1] : 'transparent')); }
   setK('np', npVal() ? String(npVal()) : '--'); setK('kcal', S.kj ? String(Math.round(S.kj)) : '--'); setK('vmax', fmt(S.vmax, 1));
   setK('clock', d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0')); setK('ele', S.ele !== null && S.ele !== undefined ? String(Math.round(S.ele)) : '--');
+  setK('wind', wxShort()); setK('temp', WX.data ? fmt(WX.data.current.temperature_2m, 0) : '--');
+  const wn = wxNow(), wb = $('#wxBadge');
+  if (wn){ wb.style.display = 'block'; wb.textContent = '💨 ' + wxShort() + (wn.w ? ' · ' + (wn.w.type.startsWith('côté') ? 'côté' : wn.w.type) : ''); wb.style.color = wn.w ? windCol(wn.w.type) : '#fff'; } else wb.style.display = 'none';
   const lc = lapCur(); setK('lap', String(S.laps.length + 1)); setK('laptime', ms(lc.t)); setK('lapdist', fmt(lc.d/1000, 2)); setK('lapspd', fmt(lc.spd, 1)); setK('lappw', lc.pw ? String(Math.round(lc.pw)) : '--');
   setK('cad', S.cad !== null && fresh(S.cadT) ? String(S.cad) : '--');
   const hrOk = S.hr !== null && fresh(S.hrT, 6000); setK('hr', hrOk ? String(S.hr) : '--');
